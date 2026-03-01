@@ -138,18 +138,21 @@ export function buildBody(onProgress) {
 
     console.log('Loading anatomy models...');
 
+    // Use Vite's BASE_URL so paths work on GitHub Pages (base: '/BodyExplorer/')
+    const base = import.meta.env.BASE_URL;
+
     // Load mesh mapping to identify Z-Anatomy meshes
-    const mappingPromise = fetch('/mesh_mapping.json')
+    const mappingPromise = fetch(`${base}mesh_mapping.json`)
       .then((res) => res.json())
       .catch(() => []);
 
     // Load both GLBs in parallel
-    const anatomyPromise = loadGLB(loader, '/anatomy.glb', (pct) => {
+    const anatomyPromise = loadGLB(loader, `${base}anatomy.glb`, (pct) => {
       // Anatomy is 0-70% of total progress
       if (onProgress) onProgress(Math.round(pct * 0.7));
     });
 
-    const skeletonPromise = loadGLB(loader, '/skeleton.glb', (pct) => {
+    const skeletonPromise = loadGLB(loader, `${base}skeleton.glb`, (pct) => {
       // Skeleton is 70-100% of total progress
       if (onProgress) onProgress(Math.round(70 + pct * 0.3));
     });
