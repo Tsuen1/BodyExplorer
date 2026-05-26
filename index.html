@@ -75,6 +75,19 @@
           <input type="range" id="skeleton-opacity-slider" min="0.1" max="1" step="0.05" value="0.6" />
         </div>
 
+        <div class="control-group layer-peel-panel">
+          <label>腰背分层剥离</label>
+          <label class="toggle">
+            <input type="checkbox" id="toggle-layer-peel" />
+            <span>启用分层剥离</span>
+          </label>
+          <div class="form-row">
+            <span class="field-label">当前层级：<strong id="layer-peel-label">完整腰背</strong></span>
+            <input type="range" id="layer-peel-slider" min="0" max="4" step="1" value="0" disabled />
+          </div>
+          <p id="layer-peel-description">显示腰背相关结构，用滑块逐步去掉外层。</p>
+        </div>
+
         <div class="control-group pain-record-panel">
           <label>疼痛记录</label>
           <form id="pain-form">

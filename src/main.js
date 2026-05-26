@@ -637,6 +637,141 @@ btnShowAll.addEventListener('click', () => {
   updateFocusButtons();
 });
 
+// ───────────── Lumbar / Back Layer Peel ─────────────
+
+const LAYER_PEEL_STEPS = [
+  {
+    label: '完整腰背',
+    description: '显示腰背相关的浅层、中层、深层肌肉和胸腰筋膜。',
+  },
+  {
+    label: '去掉浅层',
+    description: '隐藏斜方肌、背阔肌、臀大肌等浅层大肌肉，查看中深层结构。',
+  },
+  {
+    label: '进入深层',
+    description: '保留深层背肌、腰方肌、髋后深层肌和胸腰筋膜。',
+  },
+  {
+    label: '深层稳定肌',
+    description: '聚焦多裂肌、回旋肌、棘间肌、横突间肌等脊柱深层稳定肌。',
+  },
+  {
+    label: '胸腰筋膜',
+    description: '仅显示胸腰筋膜相关层次，配合骨骼观察腰背力传递通道。',
+  },
+];
+
+const toggleLayerPeel = document.getElementById('toggle-layer-peel');
+const layerPeelSlider = document.getElementById('layer-peel-slider');
+const layerPeelLabel = document.getElementById('layer-peel-label');
+const layerPeelDescription = document.getElementById('layer-peel-description');
+
+function isLayerPeelEnabled() {
+  return Boolean(toggleLayerPeel?.checked);
+}
+
+function getLayerPeelStep() {
+  return Number(layerPeelSlider?.value || 0);
+}
+
+function updateLayerPeelUI() {
+  const enabled = isLayerPeelEnabled();
+  const step = getLayerPeelStep();
+  const config = LAYER_PEEL_STEPS[step] || LAYER_PEEL_STEPS[0];
+
+  layerPeelSlider.disabled = !enabled;
+  layerPeelLabel.textContent = config.label;
+  layerPeelDescription.textContent = enabled
+    ? config.description
+    : '显示腰背相关结构，用滑块逐步去掉外层。';
+}
+
+function getLayerPeelClass(mesh) {
+  const rawName = (mesh.userData.muscleData?.rawName || '').toLowerCase().replace(/_/g, ' ');
+
+  if (rawName.includes('thoracolumbar fascia')) return 4;
+
+  if (rawName.includes('multifidus') ||
+      rawName.includes('rotatores') ||
+      rawName.includes('interspinalis') ||
+      rawName.includes('intertransversarii') ||
+      rawName.includes('rectus capitis posterior') ||
+      rawName.includes('quadratus lumborum') ||
+      rawName.includes('piriformis') ||
+      rawName.includes('obturator') ||
+      rawName.includes('gemellus') ||
+      rawName.includes('quadratus femoris')) {
+    return 3;
+  }
+
+  if (rawName.includes('semispinalis') ||
+      rawName.includes('iliocostalis') ||
+      rawName.includes('longissimus') ||
+      rawName.includes('spinalis') ||
+      rawName.includes('splenius') ||
+      rawName.includes('levator scapulae') ||
+      rawName.includes('gluteus medius') ||
+      rawName.includes('gluteus minimus')) {
+    return 2;
+  }
+
+  if (rawName.includes('trapezius') ||
+      rawName.includes('latissimus dorsi') ||
+      rawName.includes('rhomboid') ||
+      rawName.includes('serratus posterior') ||
+      rawName.includes('gluteus maximus')) {
+    return 1;
+  }
+
+  return 0;
+}
+
+function shouldShowForLayerPeel(mesh) {
+  const layerClass = getLayerPeelClass(mesh);
+  const step = getLayerPeelStep();
+
+  if (!layerClass) return false;
+  if (step === 0) return layerClass >= 1;
+  if (step === 1) return layerClass >= 2;
+  if (step === 2) return layerClass >= 3;
+  if (step === 3) return layerClass === 3;
+  if (step === 4) return layerClass === 4;
+
+  return layerClass >= 1;
+}
+
+function moveCameraToLayerPeelView() {
+  const dist = defaultCameraPos.distanceTo(defaultLookAt);
+  animateCamera(
+    new THREE.Vector3(defaultLookAt.x, defaultLookAt.y, defaultLookAt.z - dist),
+    defaultLookAt.clone(), 800
+  );
+}
+
+toggleLayerPeel.addEventListener('change', () => {
+  if (isLayerPeelEnabled()) {
+    focusedMesh = null;
+    if (selectedMesh) {
+      resetMeshAppearance(selectedMesh);
+      selectedMesh = null;
+      hideInfoPanel();
+    }
+    moveCameraToLayerPeelView();
+  }
+
+  updateLayerPeelUI();
+  updateFocusButtons();
+  updateMuscleVisibility();
+});
+
+layerPeelSlider.addEventListener('input', () => {
+  updateLayerPeelUI();
+  updateMuscleVisibility();
+});
+
+updateLayerPeelUI();
+
 // ───────────── Pain Records ─────────────
 
 const PAIN_RECORD_STORAGE_KEY = 'easton-pain-records-v1';
@@ -906,6 +1041,12 @@ function updateMuscleVisibility() {
       mesh.visible = false;
       continue;
     }
+
+    if (isLayerPeelEnabled()) {
+      mesh.visible = shouldShowForLayerPeel(mesh);
+      continue;
+    }
+
     const group = mesh.userData.muscleData.group;
     const isTendon = mesh.userData.muscleData.type === 'tendon';
     const tendonVisible = document.getElementById('toggle-tendons').checked;
@@ -949,6 +1090,9 @@ document.getElementById('btn-reset').addEventListener('click', () => {
   setMuscleOpacity(1);
   document.getElementById('skeleton-opacity-slider').value = 0.6;
   setSkeletonOpacity(0.6);
+  toggleLayerPeel.checked = false;
+  layerPeelSlider.value = 0;
+  updateLayerPeelUI();
   // Restore all hidden parts
   hiddenMeshes.clear();
   focusedMesh = null;
