@@ -62,6 +62,10 @@
               <input type="checkbox" id="toggle-tendons" checked />
               <span>显示腱 / 筋膜结构</span>
             </label>
+            <label class="toggle">
+              <input type="checkbox" id="toggle-pain-markers" checked />
+              <span>显示疼痛标记</span>
+            </label>
           </div>
         </div>
 
@@ -169,6 +173,7 @@
             <div class="pain-records-header">
               <span>本地记录（<span id="pain-record-count">0</span>）</span>
             </div>
+            <p id="pain-marker-status" aria-live="polite">模型标记：0 个</p>
             <div class="button-row pain-export-actions">
               <button type="button" id="btn-export-pain-csv">导出 CSV</button>
               <button type="button" id="btn-export-pain-json">导出 JSON</button>

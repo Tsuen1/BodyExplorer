@@ -322,6 +322,14 @@ body {
   margin-bottom: 8px;
 }
 
+#pain-marker-status {
+  min-height: 16px;
+  margin-bottom: 6px;
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
 .pain-export-actions {
   margin-bottom: 6px;
 }
@@ -347,6 +355,14 @@ body {
   border-radius: 8px;
   padding: 8px;
   background: rgba(255, 255, 255, 0.04);
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.pain-record-item:hover,
+.pain-record-item.marker-active {
+  border-color: rgba(255, 209, 102, 0.55);
+  background: rgba(255, 209, 102, 0.08);
 }
 
 .pain-record-title {

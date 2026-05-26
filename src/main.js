@@ -197,6 +197,11 @@ function hideLoadingOverlay() {
 let muscleMeshes = [];
 let skeletonGroup = null;
 let bodyGroup = null;
+const painMarkerGroup = new THREE.Group();
+scene.add(painMarkerGroup);
+
+const painMarkerGeometry = new THREE.SphereGeometry(0.22, 24, 16);
+let painMarkerMeshes = [];
 
 // Computed camera framing — updated after model loads
 let defaultCameraPos = new THREE.Vector3(0, 5, 35);
@@ -212,6 +217,7 @@ const mouse = new THREE.Vector2();
 let hoveredMesh = null;
 let selectedMesh = null;
 let focusedMesh = null;
+let activePainRecordId = null;
 
 canvas.addEventListener('mousemove', onMouseMove);
 canvas.addEventListener('click', onClick);
@@ -223,6 +229,7 @@ function onMouseMove(event) {
   mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
 
   raycaster.setFromCamera(mouse, camera);
+  const markerIntersects = raycaster.intersectObjects(getVisiblePainMarkers(), false);
   const visibleMeshes = muscleMeshes.filter(m => m.visible);
   const intersects = raycaster.intersectObjects(visibleMeshes, false);
 
@@ -231,7 +238,10 @@ function onMouseMove(event) {
     resetMeshAppearance(hoveredMesh);
   }
 
-  if (intersects.length > 0) {
+  if (markerIntersects.length > 0) {
+    hoveredMesh = null;
+    canvas.style.cursor = 'pointer';
+  } else if (intersects.length > 0) {
     const mesh = intersects[0].object;
     if (mesh !== selectedMesh) {
       hoveredMesh = mesh;
@@ -251,6 +261,7 @@ function onClick(event) {
   mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
 
   raycaster.setFromCamera(mouse, camera);
+  const markerIntersects = raycaster.intersectObjects(getVisiblePainMarkers(), false);
   const visibleMeshes = muscleMeshes.filter(m => m.visible);
   const intersects = raycaster.intersectObjects(visibleMeshes, false);
 
@@ -260,7 +271,10 @@ function onClick(event) {
     selectedMesh = null;
   }
 
-  if (intersects.length > 0) {
+  if (markerIntersects.length > 0) {
+    hideInfoPanel();
+    selectPainMarker(markerIntersects[0].object, { moveCamera: false });
+  } else if (intersects.length > 0) {
     const mesh = intersects[0].object;
     selectMesh(mesh);
     showInfoPanel(mesh.userData);
@@ -797,6 +811,8 @@ const painRecordList = document.getElementById('pain-record-list');
 const btnExportPainCsv = document.getElementById('btn-export-pain-csv');
 const btnExportPainJson = document.getElementById('btn-export-pain-json');
 const painExportStatus = document.getElementById('pain-export-status');
+const painMarkerStatus = document.getElementById('pain-marker-status');
+const togglePainMarkers = document.getElementById('toggle-pain-markers');
 
 function getTodayISODate() {
   const now = new Date();
@@ -893,6 +909,10 @@ function renderPainRecords() {
   for (const record of painRecords) {
     const item = document.createElement('li');
     item.className = 'pain-record-item';
+    item.dataset.recordId = record.id;
+    if (record.id === activePainRecordId) {
+      item.classList.add('marker-active');
+    }
 
     const title = document.createElement('div');
     title.className = 'pain-record-title';
@@ -1007,12 +1027,241 @@ function exportPainRecords(format) {
   painExportStatus.textContent = '已生成 CSV 文件';
 }
 
+function getVisiblePainMarkers() {
+  if (!painMarkerGroup.visible) return [];
+  return painMarkerMeshes.filter((marker) => marker.visible);
+}
+
+function clearPainMarkers() {
+  for (const marker of painMarkerMeshes) {
+    painMarkerGroup.remove(marker);
+    marker.material.dispose();
+  }
+  painMarkerMeshes = [];
+}
+
+function getMeshWorldCenter(mesh) {
+  mesh.geometry.computeBoundingBox();
+  const center = new THREE.Vector3();
+  mesh.geometry.boundingBox.getCenter(center);
+  mesh.localToWorld(center);
+  return center;
+}
+
+function findLinkedStructureMesh(record) {
+  const rawName = record.structure?.rawName;
+  if (rawName) {
+    const exactMatch = muscleMeshes.find((mesh) => mesh.userData.muscleData?.rawName === rawName);
+    if (exactMatch) return exactMatch;
+  }
+
+  const englishName = (record.structure?.englishName || '').toLowerCase();
+  if (englishName) {
+    return muscleMeshes.find((mesh) =>
+      (mesh.userData.englishName || '').toLowerCase() === englishName
+    );
+  }
+
+  return null;
+}
+
+function getBodyMetrics() {
+  const fallbackBox = new THREE.Box3(
+    new THREE.Vector3(-5, -15, -3),
+    new THREE.Vector3(5, 15, 3)
+  );
+  const box = bodyGroup ? new THREE.Box3().setFromObject(bodyGroup) : fallbackBox;
+  const center = box.getCenter(new THREE.Vector3());
+  const size = box.getSize(new THREE.Vector3());
+
+  return {
+    box,
+    center,
+    width: Math.max(size.x, 1),
+    height: Math.max(size.y, 1),
+    depth: Math.max(size.z, 1),
+  };
+}
+
+function getLeftSideSign() {
+  const leftSamples = muscleMeshes
+    .filter((mesh) => mesh.userData.muscleData?.rawName?.toLowerCase().startsWith('left '))
+    .slice(0, 20);
+  const rightSamples = muscleMeshes
+    .filter((mesh) => mesh.userData.muscleData?.rawName?.toLowerCase().startsWith('right '))
+    .slice(0, 20);
+
+  if (leftSamples.length === 0 || rightSamples.length === 0) return 1;
+
+  const avgX = (meshes) =>
+    meshes.reduce((sum, mesh) => sum + getMeshWorldCenter(mesh).x, 0) / meshes.length;
+
+  return avgX(leftSamples) >= avgX(rightSamples) ? 1 : -1;
+}
+
+function getSideOffset(side, width) {
+  const leftSign = getLeftSideSign();
+  const offset = width * 0.18;
+
+  if (side === '左侧') return leftSign * offset;
+  if (side === '右侧') return -leftSign * offset;
+  return 0;
+}
+
+function getRegionAnchorPosition(record) {
+  const metrics = getBodyMetrics();
+  const sideX = getSideOffset(record.side, metrics.width);
+  const backZ = metrics.box.min.z - metrics.depth * 0.05;
+  const centerX = metrics.center.x + sideX;
+  let y = metrics.center.y;
+
+  if (record.region.includes('枕后')) {
+    y = metrics.box.max.y - metrics.height * 0.12;
+  } else if (record.region.includes('后颈')) {
+    y = metrics.box.max.y - metrics.height * 0.24;
+  } else if (record.region.includes('骶髂')) {
+    y = metrics.center.y - metrics.height * 0.18;
+  } else if (record.region.includes('髋部') || record.region.includes('臀部')) {
+    y = metrics.center.y - metrics.height * 0.25;
+  } else if (record.region.includes('腰部') || record.region.includes('深层稳定肌')) {
+    y = metrics.center.y - metrics.height * 0.05;
+  }
+
+  return new THREE.Vector3(centerX, y, backZ);
+}
+
+function getPainMarkerPosition(record) {
+  const linkedMesh = findLinkedStructureMesh(record);
+
+  if (linkedMesh) {
+    const metrics = getBodyMetrics();
+    const center = getMeshWorldCenter(linkedMesh);
+    const outward = center.clone().sub(metrics.center);
+    if (outward.length() < 0.01) outward.set(0, 0, -1);
+    return center.add(outward.normalize().multiplyScalar(0.45));
+  }
+
+  return getRegionAnchorPosition(record);
+}
+
+function getPainMarkerColor(score) {
+  const value = THREE.MathUtils.clamp(Number(score) || 0, 0, 10) / 10;
+  return new THREE.Color('#ffd166').lerp(new THREE.Color('#ef476f'), value);
+}
+
+function createPainMarkerMaterial(score) {
+  const color = getPainMarkerColor(score);
+  return new THREE.MeshStandardMaterial({
+    color,
+    emissive: color.clone().multiplyScalar(0.45),
+    roughness: 0.35,
+    metalness: 0,
+    transparent: true,
+    opacity: 0.92,
+    depthTest: false,
+    depthWrite: false,
+  });
+}
+
+function refreshPainMarkers() {
+  clearPainMarkers();
+  painMarkerGroup.visible = Boolean(togglePainMarkers?.checked);
+
+  if (!bodyGroup || painRecords.length === 0) {
+    activePainRecordId = null;
+    updatePainMarkerStatus();
+    return;
+  }
+
+  if (!painRecords.some((record) => record.id === activePainRecordId)) {
+    activePainRecordId = null;
+  }
+
+  for (const record of painRecords) {
+    const marker = new THREE.Mesh(painMarkerGeometry, createPainMarkerMaterial(record.score));
+    const scale = 0.8 + THREE.MathUtils.clamp(Number(record.score) || 0, 0, 10) * 0.06;
+
+    marker.position.copy(getPainMarkerPosition(record));
+    marker.scale.setScalar(scale);
+    marker.renderOrder = 20;
+    marker.userData.isPainMarker = true;
+    marker.userData.recordId = record.id;
+    marker.userData.baseScale = scale;
+    marker.userData.recordTitle = `${record.date}｜${record.region}｜${record.score}/10`;
+
+    painMarkerGroup.add(marker);
+    painMarkerMeshes.push(marker);
+  }
+
+  updatePainMarkerSelection();
+  updatePainMarkerStatus();
+}
+
+function updatePainMarkerStatus() {
+  if (!painMarkerStatus) return;
+
+  if (!painMarkerGroup.visible && painMarkerMeshes.length > 0) {
+    painMarkerStatus.textContent = `疼痛标记已隐藏：${painMarkerMeshes.length} 个`;
+    return;
+  }
+
+  const activeRecord = painRecords.find((record) => record.id === activePainRecordId);
+  if (activeRecord) {
+    painMarkerStatus.textContent = `已定位：${activeRecord.date}｜${activeRecord.region}｜${activeRecord.score}/10`;
+    return;
+  }
+
+  painMarkerStatus.textContent = `模型标记：${painMarkerMeshes.length} 个`;
+}
+
+function updatePainMarkerSelection() {
+  for (const marker of painMarkerMeshes) {
+    const active = marker.userData.recordId === activePainRecordId;
+    marker.scale.setScalar(marker.userData.baseScale * (active ? 1.45 : 1));
+    marker.material.opacity = active ? 1 : 0.92;
+  }
+
+  painRecordList.querySelectorAll('.pain-record-item').forEach((item) => {
+    item.classList.toggle('marker-active', item.dataset.recordId === activePainRecordId);
+  });
+}
+
+function moveCameraToPainMarker(marker) {
+  const target = marker.position.clone();
+  const dist = Math.max(defaultCameraPos.distanceTo(defaultLookAt) * 0.42, 9);
+  const backSide = marker.position.z <= defaultLookAt.z;
+  const cameraZ = marker.position.z + (backSide ? -dist : dist);
+  const cameraPos = new THREE.Vector3(marker.position.x, marker.position.y + 1.2, cameraZ);
+  animateCamera(cameraPos, target, 800);
+}
+
+function selectPainMarker(marker, options = {}) {
+  activePainRecordId = marker.userData.recordId;
+  updatePainMarkerSelection();
+  updatePainMarkerStatus();
+
+  const item = [...painRecordList.querySelectorAll('.pain-record-item')]
+    .find((recordItem) => recordItem.dataset.recordId === activePainRecordId);
+  item?.scrollIntoView({ block: 'nearest' });
+
+  if (options.moveCamera !== false) {
+    moveCameraToPainMarker(marker);
+  }
+}
+
+function focusPainMarkerByRecord(recordId) {
+  const marker = painMarkerMeshes.find((item) => item.userData.recordId === recordId);
+  if (!marker) return;
+  selectPainMarker(marker);
+}
+
 function savePainRecord(event) {
   event.preventDefault();
   const record = getPainRecordPayload();
   painRecords.unshift(record);
   persistPainRecords();
   renderPainRecords();
+  refreshPainMarkers();
   resetPainForm();
   painSaveStatus.textContent = '已保存到本地记录';
 }
@@ -1036,6 +1285,11 @@ btnClearPainForm.addEventListener('click', () => {
   resetPainForm();
 });
 
+togglePainMarkers.addEventListener('change', () => {
+  painMarkerGroup.visible = togglePainMarkers.checked;
+  updatePainMarkerStatus();
+});
+
 btnExportPainCsv.addEventListener('click', () => {
   exportPainRecords('csv');
 });
@@ -1046,16 +1300,27 @@ btnExportPainJson.addEventListener('click', () => {
 
 painRecordList.addEventListener('click', (event) => {
   const deleteButton = event.target.closest('.pain-record-delete');
-  if (!deleteButton) return;
+  if (deleteButton) {
+    painRecords = painRecords.filter((record) => record.id !== deleteButton.dataset.recordId);
+    if (activePainRecordId === deleteButton.dataset.recordId) {
+      activePainRecordId = null;
+    }
+    persistPainRecords();
+    renderPainRecords();
+    refreshPainMarkers();
+    return;
+  }
 
-  painRecords = painRecords.filter((record) => record.id !== deleteButton.dataset.recordId);
-  persistPainRecords();
-  renderPainRecords();
+  const recordItem = event.target.closest('.pain-record-item');
+  if (recordItem) {
+    focusPainMarkerByRecord(recordItem.dataset.recordId);
+  }
 });
 
 loadPainRecords();
 resetPainForm();
 renderPainRecords();
+refreshPainMarkers();
 
 // ───────────── UI Controls ─────────────
 
@@ -1197,6 +1462,11 @@ document.getElementById('btn-reset').addEventListener('click', () => {
   toggleLayerPeel.checked = false;
   layerPeelSlider.value = 0;
   updateLayerPeelUI();
+  togglePainMarkers.checked = true;
+  painMarkerGroup.visible = true;
+  activePainRecordId = null;
+  updatePainMarkerSelection();
+  updatePainMarkerStatus();
   // Restore all hidden parts
   hiddenMeshes.clear();
   focusedMesh = null;
@@ -1368,6 +1638,7 @@ async function initBody() {
 
     console.log(`Body Explorer: ${muscleMeshes.length} muscle/tendon meshes loaded`);
 
+    refreshPainMarkers();
     hideLoadingOverlay();
   } catch (error) {
     console.error('Failed to load anatomy model:', error);
