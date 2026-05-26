@@ -280,6 +280,7 @@ function onClick(event) {
     showInfoPanel(mesh.userData);
   } else {
     hideInfoPanel();
+    hidePainDetailPanel();
   }
 }
 
@@ -334,6 +335,8 @@ infoClose.addEventListener('click', () => {
 });
 
 function showInfoPanel(userData) {
+  hidePainDetailPanel();
+
   const data = userData.muscleData;
   const info = data.info;
   const zhInfo = getChineseMuscleInfo(data.rawName);
@@ -813,6 +816,13 @@ const btnExportPainJson = document.getElementById('btn-export-pain-json');
 const painExportStatus = document.getElementById('pain-export-status');
 const painMarkerStatus = document.getElementById('pain-marker-status');
 const togglePainMarkers = document.getElementById('toggle-pain-markers');
+const painDetailPanel = document.getElementById('pain-detail-panel');
+const painDetailClose = document.getElementById('pain-detail-close');
+const painDetailTitle = document.getElementById('pain-detail-title');
+const painDetailScore = document.getElementById('pain-detail-score');
+const painDetailBody = document.getElementById('pain-detail-body');
+const btnPainDetailFocus = document.getElementById('btn-pain-detail-focus');
+const btnPainDetailStructure = document.getElementById('btn-pain-detail-structure');
 
 function getTodayISODate() {
   const now = new Date();
@@ -1027,6 +1037,78 @@ function exportPainRecords(format) {
   painExportStatus.textContent = '已生成 CSV 文件';
 }
 
+function getPainRecordById(recordId) {
+  return painRecords.find((record) => record.id === recordId) || null;
+}
+
+function formatPainDetailText(value) {
+  return value ? escapeHTML(value) : '<span class="source-text">未填写</span>';
+}
+
+function formatPainDetailDateTime(value) {
+  if (!value) return '<span class="source-text">未填写</span>';
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return escapeHTML(value);
+
+  return escapeHTML(date.toLocaleString('zh-CN', { hour12: false }));
+}
+
+function getPainScoreLabel(score) {
+  const value = Number(score) || 0;
+  if (value >= 7) return '较重';
+  if (value >= 4) return '中等';
+  if (value > 0) return '较轻';
+  return '无痛';
+}
+
+function getPainScoreColor(score) {
+  const value = THREE.MathUtils.clamp(Number(score) || 0, 0, 10) / 10;
+  return new THREE.Color('#ffd166').lerp(new THREE.Color('#ef476f'), value).getStyle();
+}
+
+function buildPainDetailRow(label, valueHTML) {
+  return `
+    <div class="pain-detail-row">
+      <span class="pain-detail-label">${escapeHTML(label)}</span>
+      <span class="pain-detail-value">${valueHTML}</span>
+    </div>
+  `;
+}
+
+function showPainDetailPanel(record) {
+  if (!record) return;
+
+  hideInfoPanel();
+  painDetailTitle.textContent = `${record.date}｜${record.region}`;
+  painDetailScore.textContent = `疼痛 ${record.score}/10｜${getPainScoreLabel(record.score)}`;
+  painDetailScore.style.background = getPainScoreColor(record.score);
+
+  const structureName = record.structure?.name || '';
+  const structureEnglishName = record.structure?.englishName || '';
+  const structureHTML = structureName
+    ? `${escapeHTML(structureName)}${structureEnglishName ? `<br><span class="source-text">${escapeHTML(structureEnglishName)}</span>` : ''}`
+    : '<span class="source-text">未关联具体解剖结构</span>';
+
+  painDetailBody.innerHTML = [
+    buildPainDetailRow('左右侧', formatPainDetailText(record.side)),
+    buildPainDetailRow('部位', formatPainDetailText(record.region)),
+    buildPainDetailRow('关联结构', structureHTML),
+    buildPainDetailRow('诱发动作', formatPainDetailText(record.trigger)),
+    buildPainDetailRow('治疗方式', formatPainDetailText(record.treatment)),
+    buildPainDetailRow('治疗后变化', formatPainDetailText(record.change)),
+    buildPainDetailRow('备注', formatPainDetailText(record.note)),
+    buildPainDetailRow('创建时间', formatPainDetailDateTime(record.createdAt)),
+  ].join('');
+
+  btnPainDetailStructure.disabled = !findLinkedStructureMesh(record);
+  painDetailPanel.classList.remove('hidden');
+}
+
+function hidePainDetailPanel() {
+  painDetailPanel.classList.add('hidden');
+}
+
 function getVisiblePainMarkers() {
   if (!painMarkerGroup.visible) return [];
   return painMarkerMeshes.filter((marker) => marker.visible);
@@ -1200,6 +1282,10 @@ function refreshPainMarkers() {
 function updatePainMarkerStatus() {
   if (!painMarkerStatus) return;
 
+  if (activePainRecordId && !getPainRecordById(activePainRecordId)) {
+    hidePainDetailPanel();
+  }
+
   if (!painMarkerGroup.visible && painMarkerMeshes.length > 0) {
     painMarkerStatus.textContent = `疼痛标记已隐藏：${painMarkerMeshes.length} 个`;
     return;
@@ -1239,6 +1325,7 @@ function selectPainMarker(marker, options = {}) {
   activePainRecordId = marker.userData.recordId;
   updatePainMarkerSelection();
   updatePainMarkerStatus();
+  showPainDetailPanel(getPainRecordById(activePainRecordId));
 
   const item = [...painRecordList.querySelectorAll('.pain-record-item')]
     .find((recordItem) => recordItem.dataset.recordId === activePainRecordId);
@@ -1285,6 +1372,26 @@ btnClearPainForm.addEventListener('click', () => {
   resetPainForm();
 });
 
+painDetailClose.addEventListener('click', () => {
+  hidePainDetailPanel();
+});
+
+btnPainDetailFocus.addEventListener('click', () => {
+  if (!activePainRecordId) return;
+  focusPainMarkerByRecord(activePainRecordId);
+});
+
+btnPainDetailStructure.addEventListener('click', () => {
+  const record = getPainRecordById(activePainRecordId);
+  if (!record) return;
+
+  const mesh = findLinkedStructureMesh(record);
+  if (!mesh) return;
+
+  selectMesh(mesh, { focus: true });
+  showInfoPanel(mesh.userData);
+});
+
 togglePainMarkers.addEventListener('change', () => {
   painMarkerGroup.visible = togglePainMarkers.checked;
   updatePainMarkerStatus();
@@ -1304,6 +1411,7 @@ painRecordList.addEventListener('click', (event) => {
     painRecords = painRecords.filter((record) => record.id !== deleteButton.dataset.recordId);
     if (activePainRecordId === deleteButton.dataset.recordId) {
       activePainRecordId = null;
+      hidePainDetailPanel();
     }
     persistPainRecords();
     renderPainRecords();
@@ -1510,6 +1618,7 @@ document.getElementById('btn-reset').addEventListener('click', () => {
     selectedMesh = null;
   }
   hideInfoPanel();
+  hidePainDetailPanel();
   updateMuscleVisibility();
   updateFocusButtons();
 });
