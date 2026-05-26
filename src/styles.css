@@ -200,9 +200,14 @@ body {
   transition: all 0.2s;
 }
 
-.button-row button:hover {
+.button-row button:hover:not(:disabled) {
   background: var(--accent);
   border-color: var(--accent);
+}
+
+.button-row button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 /* Pain record form */
@@ -250,6 +255,7 @@ body {
 
 #btn-link-selected,
 .pain-actions button,
+.pain-export-actions button,
 .pain-record-delete {
   padding: 7px 9px;
   font-size: 11px;
@@ -264,6 +270,7 @@ body {
 
 #btn-link-selected:hover,
 .pain-actions button:hover,
+.pain-export-actions button:hover:not(:disabled),
 .pain-record-delete:hover {
   background: rgba(233, 69, 96, 0.2);
   border-color: var(--accent);
@@ -313,6 +320,17 @@ body {
   font-size: 11px;
   font-weight: 600;
   margin-bottom: 8px;
+}
+
+.pain-export-actions {
+  margin-bottom: 6px;
+}
+
+#pain-export-status {
+  min-height: 16px;
+  margin-bottom: 6px;
+  color: var(--accent-light);
+  font-size: 11px;
 }
 
 #pain-record-list {

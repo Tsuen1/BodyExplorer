@@ -794,6 +794,9 @@ const btnLinkSelected = document.getElementById('btn-link-selected');
 const btnClearPainForm = document.getElementById('btn-clear-pain-form');
 const painRecordCount = document.getElementById('pain-record-count');
 const painRecordList = document.getElementById('pain-record-list');
+const btnExportPainCsv = document.getElementById('btn-export-pain-csv');
+const btnExportPainJson = document.getElementById('btn-export-pain-json');
+const painExportStatus = document.getElementById('pain-export-status');
 
 function getTodayISODate() {
   const now = new Date();
@@ -864,9 +867,20 @@ function getPainRecordPayload() {
   };
 }
 
+function updatePainExportControls() {
+  const hasRecords = painRecords.length > 0;
+  btnExportPainCsv.disabled = !hasRecords;
+  btnExportPainJson.disabled = !hasRecords;
+
+  if (!hasRecords) {
+    painExportStatus.textContent = '';
+  }
+}
+
 function renderPainRecords() {
   painRecordCount.textContent = painRecords.length;
   painRecordList.innerHTML = '';
+  updatePainExportControls();
 
   if (painRecords.length === 0) {
     const empty = document.createElement('li');
@@ -911,6 +925,88 @@ function renderPainRecords() {
   }
 }
 
+function getExportDateStamp() {
+  return getTodayISODate().replace(/-/g, '');
+}
+
+function downloadTextFile(filename, content, mimeType) {
+  const blob = new Blob([content], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 0);
+}
+
+function csvEscape(value) {
+  const text = String(value ?? '');
+  return `"${text.replace(/"/g, '""')}"`;
+}
+
+function formatPainRecordsAsCSV() {
+  const headers = [
+    '日期',
+    '左右侧',
+    '部位',
+    '疼痛等级',
+    '关联结构',
+    '英文原名',
+    '诱发动作',
+    '治疗方式',
+    '治疗后变化',
+    '备注',
+    '创建时间',
+  ];
+  const rows = painRecords.map((record) => [
+    record.date,
+    record.side,
+    record.region,
+    record.score,
+    record.structure?.name || '',
+    record.structure?.englishName || '',
+    record.trigger || '',
+    record.treatment || '',
+    record.change || '',
+    record.note || '',
+    record.createdAt || '',
+  ]);
+
+  return `\uFEFF${[headers, ...rows].map((row) => row.map(csvEscape).join(',')).join('\n')}`;
+}
+
+function exportPainRecords(format) {
+  if (painRecords.length === 0) {
+    painExportStatus.textContent = '暂无记录可导出';
+    return;
+  }
+
+  const filenameBase = `easton-pain-records-${getExportDateStamp()}`;
+
+  if (format === 'json') {
+    const payload = {
+      app: 'Easton 疼痛解剖地图',
+      exportedAt: new Date().toISOString(),
+      recordCount: painRecords.length,
+      records: painRecords,
+    };
+
+    downloadTextFile(
+      `${filenameBase}.json`,
+      JSON.stringify(payload, null, 2),
+      'application/json;charset=utf-8'
+    );
+    painExportStatus.textContent = '已生成 JSON 文件';
+    return;
+  }
+
+  downloadTextFile(`${filenameBase}.csv`, formatPainRecordsAsCSV(), 'text/csv;charset=utf-8');
+  painExportStatus.textContent = '已生成 CSV 文件';
+}
+
 function savePainRecord(event) {
   event.preventDefault();
   const record = getPainRecordPayload();
@@ -938,6 +1034,14 @@ btnLinkSelected.addEventListener('click', () => {
 
 btnClearPainForm.addEventListener('click', () => {
   resetPainForm();
+});
+
+btnExportPainCsv.addEventListener('click', () => {
+  exportPainRecords('csv');
+});
+
+btnExportPainJson.addEventListener('click', () => {
+  exportPainRecords('json');
 });
 
 painRecordList.addEventListener('click', (event) => {
