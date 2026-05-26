@@ -1377,7 +1377,27 @@ function zoomToMesh(mesh) {
 
 // Muscle group filters
 const filterContainer = document.getElementById('muscle-group-filters');
+const btnShowAllGroups = document.getElementById('btn-show-all-groups');
+const btnClearAllGroups = document.getElementById('btn-clear-all-groups');
 const activeGroups = new Set(Object.keys(MUSCLE_GROUPS));
+
+function setAllMuscleGroups(active, options = {}) {
+  if (options.clearFocus) {
+    focusedMesh = null;
+  }
+
+  activeGroups.clear();
+  if (active) {
+    Object.keys(MUSCLE_GROUPS).forEach((key) => activeGroups.add(key));
+  }
+
+  document.querySelectorAll('.filter-btn').forEach((button) => {
+    button.classList.toggle('active', active);
+  });
+
+  updateMuscleVisibility();
+  updateFocusButtons();
+}
 
 for (const [key, group] of Object.entries(MUSCLE_GROUPS)) {
   const btn = document.createElement('button');
@@ -1398,6 +1418,14 @@ for (const [key, group] of Object.entries(MUSCLE_GROUPS)) {
 
   filterContainer.appendChild(btn);
 }
+
+btnShowAllGroups.addEventListener('click', () => {
+  setAllMuscleGroups(true, { clearFocus: true });
+});
+
+btnClearAllGroups.addEventListener('click', () => {
+  setAllMuscleGroups(false, { clearFocus: true });
+});
 
 function updateMuscleVisibility() {
   for (const mesh of muscleMeshes) {
@@ -1452,9 +1480,7 @@ document.getElementById('btn-side').addEventListener('click', () => {
 document.getElementById('btn-reset').addEventListener('click', () => {
   animateCamera(defaultCameraPos.clone(), defaultLookAt.clone(), 800);
   // Reset all filters
-  activeGroups.clear();
-  Object.keys(MUSCLE_GROUPS).forEach((k) => activeGroups.add(k));
-  document.querySelectorAll('.filter-btn').forEach((b) => b.classList.add('active'));
+  setAllMuscleGroups(true);
   document.getElementById('muscle-opacity-slider').value = 1;
   setMuscleOpacity(1);
   document.getElementById('skeleton-opacity-slider').value = 0.6;

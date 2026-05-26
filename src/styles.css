@@ -160,6 +160,10 @@ body {
   gap: 4px;
 }
 
+.filter-actions {
+  margin-top: 8px;
+}
+
 .filter-btn {
   padding: 4px 10px;
   font-size: 11px;
