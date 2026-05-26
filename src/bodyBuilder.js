@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { MUSCLE_GROUPS, getMuscleInfo, classifyMuscleGroup } from './muscleData.js';
+import { getChineseDisplayName } from './zhTerms.js';
 
 /**
  * Loads both the BodyParts3D anatomy GLB (muscles/tendons) and skeleton GLB (bones).
@@ -215,11 +216,17 @@ export function buildBody(onProgress) {
           mesh.receiveShadow = true;
           mesh.renderOrder = 1; // render muscles on top of bones
 
+          const englishName = formatMuscleName(name);
+          const chineseName = getChineseDisplayName(name, englishName);
+
           // Store metadata for raycasting/info panel
-          mesh.userData.displayName = formatMuscleName(name);
+          mesh.userData.displayName = chineseName;
+          mesh.userData.englishName = englishName;
+          mesh.userData.searchText = `${chineseName} ${englishName} ${name}`.toLowerCase();
           mesh.userData.originalMaterial = material; // for highlight restore
           mesh.userData.muscleData = {
-            name: formatMuscleName(name),
+            name: chineseName,
+            englishName,
             rawName: name,
             group: group || 'OTHER',
             type: isTendon ? 'tendon' : 'muscle',

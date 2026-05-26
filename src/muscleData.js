@@ -8,20 +8,20 @@
  */
 
 export const MUSCLE_GROUPS = {
-  HEAD_NECK: { label: 'Head & Neck', color: '#d4574a' },
-  SHOULDER: { label: 'Shoulders', color: '#c0392b' },
-  CHEST: { label: 'Chest', color: '#e74c3c' },
-  BACK: { label: 'Back', color: '#a93226' },
-  UPPER_ARM: { label: 'Upper Arms', color: '#cb4335' },
-  FOREARM: { label: 'Forearms', color: '#b03a2e' },
-  ABDOMEN: { label: 'Abdomen', color: '#d35400' },
-  HIP: { label: 'Hips & Glutes', color: '#a04000' },
-  UPPER_LEG: { label: 'Upper Legs', color: '#c0392b' },
-  LOWER_LEG: { label: 'Lower Legs', color: '#a93226' },
-  HAND: { label: 'Hand', color: '#b5450a' },
-  FOOT: { label: 'Foot', color: '#8b3a2e' },
-  TRUNK: { label: 'Trunk', color: '#c44536' },
-  OTHER: { label: 'Other', color: '#888888' },
+  HEAD_NECK: { label: '头颈部', color: '#d4574a' },
+  SHOULDER: { label: '肩部', color: '#c0392b' },
+  CHEST: { label: '胸部', color: '#e74c3c' },
+  BACK: { label: '脊背部', color: '#a93226' },
+  UPPER_ARM: { label: '上臂', color: '#cb4335' },
+  FOREARM: { label: '前臂', color: '#b03a2e' },
+  ABDOMEN: { label: '腹部', color: '#d35400' },
+  HIP: { label: '髋部与臀部', color: '#a04000' },
+  UPPER_LEG: { label: '大腿', color: '#c0392b' },
+  LOWER_LEG: { label: '小腿', color: '#a93226' },
+  HAND: { label: '手部', color: '#b5450a' },
+  FOOT: { label: '足部', color: '#8b3a2e' },
+  TRUNK: { label: '躯干', color: '#c44536' },
+  OTHER: { label: '其他', color: '#888888' },
 };
 
 /**

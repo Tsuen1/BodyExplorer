@@ -17,7 +17,7 @@
 }
 
 body {
-  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  font-family: 'PingFang SC', 'Microsoft YaHei', 'Segoe UI', system-ui, -apple-system, sans-serif;
   background: var(--bg-dark);
   color: var(--text);
   overflow: hidden;
@@ -71,7 +71,7 @@ body {
   font-size: 22px;
   font-weight: 700;
   color: var(--accent);
-  letter-spacing: 1px;
+  letter-spacing: 0;
 }
 
 #top-bar .subtitle {
@@ -84,7 +84,7 @@ body {
   position: absolute;
   top: 60px;
   left: 16px;
-  width: 260px;
+  width: 300px;
   background: var(--bg-panel);
   border: 1px solid var(--border);
   border-radius: 12px;
@@ -100,14 +100,17 @@ body {
 .control-group > label {
   display: block;
   font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 1.5px;
+  text-transform: none;
+  letter-spacing: 0;
   color: var(--text-muted);
   margin-bottom: 6px;
   font-weight: 600;
 }
 
-.control-group input[type="text"] {
+.control-group input[type="text"],
+.control-group input[type="date"],
+.control-group select,
+.control-group textarea {
   width: 100%;
   padding: 8px 12px;
   background: rgba(255, 255, 255, 0.06);
@@ -117,9 +120,18 @@ body {
   font-size: 13px;
   outline: none;
   transition: border-color 0.2s;
+  font-family: inherit;
 }
 
-.control-group input[type="text"]:focus {
+.control-group textarea {
+  resize: vertical;
+  min-height: 42px;
+}
+
+.control-group input[type="text"]:focus,
+.control-group input[type="date"]:focus,
+.control-group select:focus,
+.control-group textarea:focus {
   border-color: var(--accent);
 }
 
@@ -193,6 +205,147 @@ body {
   border-color: var(--accent);
 }
 
+/* Pain record form */
+.pain-record-panel {
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.pain-linked-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 6px;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+#pain-linked-structure {
+  min-width: 0;
+  padding: 7px 9px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-muted);
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#pain-linked-structure.linked {
+  color: var(--accent-light);
+}
+
+#btn-link-selected,
+.pain-actions button,
+.pain-record-delete {
+  padding: 7px 9px;
+  font-size: 11px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+}
+
+#btn-link-selected:hover,
+.pain-actions button:hover,
+.pain-record-delete:hover {
+  background: rgba(233, 69, 96, 0.2);
+  border-color: var(--accent);
+}
+
+.form-row {
+  margin-bottom: 10px;
+}
+
+.form-row.two-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.field-label {
+  display: block;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 600;
+  margin-bottom: 5px;
+}
+
+.field-label strong {
+  color: var(--accent-light);
+}
+
+.pain-actions {
+  margin-top: 4px;
+}
+
+#pain-save-status {
+  min-height: 16px;
+  margin-top: 6px;
+  color: var(--accent-light);
+  font-size: 11px;
+}
+
+#pain-records {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+
+.pain-records-header {
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+#pain-record-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.pain-record-item {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.pain-record-title {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.pain-record-meta {
+  margin-top: 4px;
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.pain-record-delete {
+  flex-shrink: 0;
+  padding: 3px 7px;
+}
+
+.pain-record-empty {
+  color: var(--text-muted);
+  font-size: 12px;
+  padding: 6px 0;
+}
+
 /* Toggles */
 .toggle-row {
   display: flex;
@@ -243,7 +396,7 @@ input[type="range"]::-webkit-slider-thumb {
   position: absolute;
   top: 60px;
   right: 16px;
-  width: 300px;
+  width: 360px;
   background: var(--bg-panel);
   border: 1px solid var(--border);
   border-radius: 12px;
@@ -284,8 +437,8 @@ input[type="range"]::-webkit-slider-thumb {
 .badge {
   display: inline-block;
   font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 1px;
+  text-transform: none;
+  letter-spacing: 0;
   padding: 2px 10px;
   border-radius: 20px;
   margin-bottom: 12px;
@@ -316,6 +469,10 @@ input[type="range"]::-webkit-slider-thumb {
 
 #info-details strong {
   color: var(--text);
+}
+
+.source-text {
+  color: #b7b7ce;
 }
 
 /* Info panel links */
@@ -353,8 +510,8 @@ input[type="range"]::-webkit-slider-thumb {
 #info-color-picker > label {
   display: block;
   font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 1.5px;
+  text-transform: none;
+  letter-spacing: 0;
   color: var(--text-muted);
   margin-bottom: 8px;
   font-weight: 600;
@@ -424,9 +581,12 @@ input[type="range"]::-webkit-slider-thumb {
   border-top: 1px solid var(--border);
 }
 
+#btn-focus-part,
+#btn-clear-focus,
 #btn-hide-part {
   width: 100%;
   padding: 8px 12px;
+  margin-bottom: 8px;
   font-size: 12px;
   font-weight: 600;
   background: rgba(255, 255, 255, 0.06);
@@ -437,10 +597,16 @@ input[type="range"]::-webkit-slider-thumb {
   transition: all 0.2s;
 }
 
+#btn-focus-part:hover,
+#btn-clear-focus:hover,
 #btn-hide-part:hover {
   background: rgba(233, 69, 96, 0.2);
   border-color: var(--accent);
   color: var(--text);
+}
+
+#info-actions button:last-child {
+  margin-bottom: 0;
 }
 
 /* Hidden Parts Panel */
@@ -476,8 +642,8 @@ input[type="range"]::-webkit-slider-thumb {
 
 .hidden-panel-header label {
   font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 1.5px;
+  text-transform: none;
+  letter-spacing: 0;
   color: var(--text-muted);
   font-weight: 600;
 }

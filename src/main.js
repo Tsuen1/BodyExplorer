@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { buildBody, highlightMaterial, selectedMaterial, boneMaterial } from './bodyBuilder.js';
 import { MUSCLE_GROUPS } from './muscleData.js';
+import { COLOR_LABELS, TYPE_LABELS, getChineseMuscleInfo } from './zhTerms.js';
 
 // ───────────── Highlight Colors ─────────────
 // 8 preset colors for user-assigned part highlighting
@@ -181,7 +182,7 @@ const loadingText = document.getElementById('loading-text');
 
 function updateLoadingProgress(pct) {
   if (loadingBar) loadingBar.style.width = `${pct}%`;
-  if (loadingText) loadingText.textContent = `Loading anatomy model... ${pct}%`;
+  if (loadingText) loadingText.textContent = `正在加载解剖模型... ${pct}%`;
 }
 
 function hideLoadingOverlay() {
@@ -210,6 +211,7 @@ const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2();
 let hoveredMesh = null;
 let selectedMesh = null;
+let focusedMesh = null;
 
 canvas.addEventListener('mousemove', onMouseMove);
 canvas.addEventListener('click', onClick);
@@ -260,11 +262,26 @@ function onClick(event) {
 
   if (intersects.length > 0) {
     const mesh = intersects[0].object;
-    selectedMesh = mesh;
-    highlightMesh(mesh, 0.6);
+    selectMesh(mesh);
     showInfoPanel(mesh.userData);
   } else {
     hideInfoPanel();
+  }
+}
+
+function selectMesh(mesh, options = {}) {
+  if (selectedMesh && selectedMesh !== mesh) {
+    resetMeshAppearance(selectedMesh);
+  }
+
+  selectedMesh = mesh;
+  selectedMesh.visible = true;
+  highlightMesh(mesh, 0.6);
+
+  if (options.focus) {
+    focusOnMesh(mesh);
+  } else {
+    updateFocusButtons();
   }
 }
 
@@ -305,27 +322,29 @@ infoClose.addEventListener('click', () => {
 function showInfoPanel(userData) {
   const data = userData.muscleData;
   const info = data.info;
+  const zhInfo = getChineseMuscleInfo(data.rawName);
 
   infoName.textContent = userData.displayName;
-  infoType.textContent = data.type;
+  infoType.textContent = TYPE_LABELS[data.type] || data.type;
   infoType.className = `badge ${data.type}`;
 
   let html = '';
+  html += `<p><strong>英文原名：</strong> ${escapeHTML(data.englishName || userData.englishName || data.rawName)}</p>`;
+  html += `<p><strong>分类：</strong> ${escapeHTML(MUSCLE_GROUPS[data.group]?.label || data.group)}</p>`;
+
   if (data.type === 'muscle') {
-    html += `<p><strong>Group:</strong> ${MUSCLE_GROUPS[data.group]?.label || data.group}</p>`;
-    html += `<p><strong>Origin:</strong> ${info.origin}</p>`;
-    html += `<p><strong>Insertion:</strong> ${info.insertion}</p>`;
-    html += `<p><strong>Action:</strong> ${info.action}</p>`;
+    html += `<p><strong>起点：</strong> ${formatAnatomyDetail(zhInfo?.origin, info.origin)}</p>`;
+    html += `<p><strong>止点：</strong> ${formatAnatomyDetail(zhInfo?.insertion, info.insertion)}</p>`;
+    html += `<p><strong>主要作用：</strong> ${formatAnatomyDetail(zhInfo?.action, info.action)}</p>`;
     if (info.innervation) {
-      html += `<p><strong>Innervation:</strong> ${info.innervation}</p>`;
+      html += `<p><strong>神经支配：</strong> ${formatAnatomyDetail(zhInfo?.innervation, info.innervation)}</p>`;
     }
   } else {
-    html += `<p><strong>Group:</strong> ${MUSCLE_GROUPS[data.group]?.label || data.group}</p>`;
-    html += `<p><strong>From:</strong> ${info.origin}</p>`;
-    html += `<p><strong>To:</strong> ${info.insertion}</p>`;
-    html += `<p><strong>Function:</strong> ${info.action}</p>`;
+    html += `<p><strong>起始 / 来源：</strong> ${formatAnatomyDetail(zhInfo?.origin, info.origin)}</p>`;
+    html += `<p><strong>止点 / 附着：</strong> ${formatAnatomyDetail(zhInfo?.insertion, info.insertion)}</p>`;
+    html += `<p><strong>功能：</strong> ${formatAnatomyDetail(zhInfo?.action, info.action)}</p>`;
     if (info.notes) {
-      html += `<p><strong>Notes:</strong> ${info.notes}</p>`;
+      html += `<p><strong>备注：</strong> ${formatAnatomyDetail(zhInfo?.notes, info.notes)}</p>`;
     }
   }
 
@@ -343,20 +362,38 @@ function showInfoPanel(userData) {
   wikiLink.href = wikiSearchUrl;
   wikiLink.target = '_blank';
   wikiLink.rel = 'noopener noreferrer';
-  wikiLink.textContent = 'Wikipedia';
+  wikiLink.textContent = '英文资料：Wikipedia';
   infoLinks.appendChild(wikiLink);
 
   const kenHubLink = document.createElement('a');
   kenHubLink.href = kenHubUrl;
   kenHubLink.target = '_blank';
   kenHubLink.rel = 'noopener noreferrer';
-  kenHubLink.textContent = 'Kenhub';
+  kenHubLink.textContent = '英文资料：Kenhub';
   infoLinks.appendChild(kenHubLink);
 
   infoPanel.classList.remove('hidden');
 
   // Update color picker swatch active states
   updateColorSwatchStates();
+  updateFocusButtons();
+}
+
+function escapeHTML(value) {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+function formatAnatomyDetail(zhValue, englishValue) {
+  if (zhValue) return escapeHTML(zhValue);
+  if (!englishValue || englishValue === 'See anatomical references') {
+    return '暂无中文说明';
+  }
+  return `<span class="source-text">待补充中文；英文原文：${escapeHTML(englishValue)}</span>`;
 }
 
 /**
@@ -394,7 +431,7 @@ HIGHLIGHT_COLORS.forEach((color, index) => {
   const swatch = document.createElement('div');
   swatch.className = 'color-swatch';
   swatch.style.backgroundColor = color.hex;
-  swatch.title = color.name;
+  swatch.title = COLOR_LABELS[color.name] || color.name;
   swatch.dataset.colorIndex = index;
 
   swatch.addEventListener('click', () => {
@@ -433,10 +470,111 @@ function updateColorSwatchStates() {
 // ───────────── Hide / Show Parts ─────────────
 
 const btnHidePart = document.getElementById('btn-hide-part');
+const btnFocusPart = document.getElementById('btn-focus-part');
+const btnClearFocus = document.getElementById('btn-clear-focus');
 const hiddenPanel = document.getElementById('hidden-panel');
 const hiddenCountSpan = document.getElementById('hidden-count');
 const hiddenList = document.getElementById('hidden-list');
 const btnShowAll = document.getElementById('btn-show-all');
+
+function focusOnMesh(mesh, options = {}) {
+  focusedMesh = mesh;
+  hiddenMeshes.delete(mesh);
+  mesh.visible = true;
+  updateMuscleVisibility();
+  highlightMesh(mesh, 0.6);
+  if (options.view !== 'keep') {
+    moveCameraToFocusedMesh(mesh);
+  }
+  updateFocusButtons();
+}
+
+function moveCameraToFocusedMesh(mesh) {
+  mesh.geometry.computeBoundingBox();
+  const box = mesh.geometry.boundingBox;
+  const center = new THREE.Vector3();
+  box.getCenter(center);
+  mesh.localToWorld(center);
+
+  const size = box.getSize(new THREE.Vector3());
+  const maxDim = Math.max(size.x, size.y, size.z);
+  const dist = Math.max(maxDim * 5, 14);
+
+  const view = getPreferredFocusView(mesh);
+  const sideSign = center.x >= 0 ? 1 : -1;
+  let targetPos;
+
+  if (view === 'front') {
+    targetPos = new THREE.Vector3(center.x, center.y + 0.35, center.z + dist);
+  } else if (view === 'side') {
+    targetPos = new THREE.Vector3(center.x + sideSign * dist, center.y + 0.35, center.z);
+  } else if (view === 'posterolateral') {
+    targetPos = new THREE.Vector3(center.x + sideSign * dist * 0.75, center.y + 0.35, center.z - dist * 0.75);
+  } else {
+    targetPos = new THREE.Vector3(center.x, center.y + 0.35, center.z - dist);
+  }
+
+  animateCamera(targetPos, center, 900);
+}
+
+function getPreferredFocusView(mesh) {
+  const data = mesh.userData.muscleData;
+  const rawName = (data?.rawName || '').toLowerCase().replace(/_/g, ' ');
+  const group = data?.group;
+
+  const posteriorKeywords = [
+    'multifidus', 'erector', 'iliocostalis', 'longissimus', 'spinalis',
+    'semispinalis', 'splenius', 'rotatores', 'interspinalis', 'intertransversarii',
+    'quadratus lumborum', 'thoracolumbar fascia', 'trapezius', 'rhomboid',
+    'latissimus dorsi', 'serratus posterior', 'gluteus', 'piriformis',
+    'coccygeus', 'iliococcygeus', 'pubococcygeus', 'puborectalis',
+    'biceps femoris', 'semitendinosus', 'semimembranosus', 'gastrocnemius',
+    'soleus', 'plantaris',
+  ];
+
+  const anteriorKeywords = [
+    'sternocleidomastoid', 'longus capitis', 'longus colli', 'pectoralis',
+    'serratus anterior', 'rectus abdominis', 'transversus abdominis',
+    'external oblique', 'internal oblique', 'diaphragm', 'iliacus', 'psoas',
+    'rectus femoris', 'vastus', 'adductor', 'pectineus', 'sartorius',
+    'tibialis anterior', 'extensor digitorum longus', 'extensor hallucis',
+  ];
+
+  const sideKeywords = [
+    'scalenus', 'levator scapulae', 'deltoid', 'supraspinatus', 'infraspinatus',
+    'subscapularis', 'teres major', 'teres minor', 'tensor fasciae latae',
+    'iliotibial tract', 'gluteus medius', 'gluteus minimus', 'fibularis',
+  ];
+
+  if (sideKeywords.some((keyword) => rawName.includes(keyword))) return 'side';
+  if (posteriorKeywords.some((keyword) => rawName.includes(keyword))) return 'back';
+  if (anteriorKeywords.some((keyword) => rawName.includes(keyword))) return 'front';
+
+  if (group === 'BACK') return 'back';
+  if (group === 'CHEST' || group === 'ABDOMEN' || group === 'TRUNK') return 'front';
+  if (group === 'HIP' || group === 'SHOULDER') return 'posterolateral';
+  if (group === 'UPPER_ARM' || group === 'FOREARM' || group === 'UPPER_LEG' || group === 'LOWER_LEG') return 'side';
+
+  return 'back';
+}
+
+function clearFocus() {
+  focusedMesh = null;
+  updateMuscleVisibility();
+  if (selectedMesh) highlightMesh(selectedMesh, 0.6);
+  updateFocusButtons();
+}
+
+function updateFocusButtons() {
+  if (!btnFocusPart || !btnClearFocus) return;
+
+  if (selectedMesh) {
+    btnFocusPart.disabled = focusedMesh === selectedMesh;
+    btnFocusPart.textContent = focusedMesh === selectedMesh ? '正在聚焦此结构' : '仅显示此结构';
+  }
+
+  btnClearFocus.classList.toggle('hidden', !focusedMesh);
+}
 
 function updateHiddenUI() {
   hiddenCountSpan.textContent = hiddenMeshes.size;
@@ -458,7 +596,7 @@ function updateHiddenUI() {
     li.appendChild(nameSpan);
 
     const btn = document.createElement('button');
-    btn.textContent = 'Show';
+    btn.textContent = '显示';
     btn.addEventListener('click', () => {
       hiddenMeshes.delete(mesh);
       updateMuscleVisibility();
@@ -473,6 +611,7 @@ function updateHiddenUI() {
 btnHidePart.addEventListener('click', () => {
   if (!selectedMesh) return;
 
+  if (focusedMesh === selectedMesh) focusedMesh = null;
   hiddenMeshes.add(selectedMesh);
   selectedMesh.visible = false;
   resetMeshAppearance(selectedMesh);
@@ -481,11 +620,203 @@ btnHidePart.addEventListener('click', () => {
   updateHiddenUI();
 });
 
+btnFocusPart.addEventListener('click', () => {
+  if (!selectedMesh) return;
+  focusOnMesh(selectedMesh);
+});
+
+btnClearFocus.addEventListener('click', () => {
+  clearFocus();
+});
+
 btnShowAll.addEventListener('click', () => {
   hiddenMeshes.clear();
+  focusedMesh = null;
   updateMuscleVisibility();
   updateHiddenUI();
+  updateFocusButtons();
 });
+
+// ───────────── Pain Records ─────────────
+
+const PAIN_RECORD_STORAGE_KEY = 'easton-pain-records-v1';
+let painRecords = [];
+let linkedPainMesh = null;
+
+const painForm = document.getElementById('pain-form');
+const painDate = document.getElementById('pain-date');
+const painSide = document.getElementById('pain-side');
+const painRegion = document.getElementById('pain-region');
+const painScore = document.getElementById('pain-score');
+const painScoreValue = document.getElementById('pain-score-value');
+const painTrigger = document.getElementById('pain-trigger');
+const painTreatment = document.getElementById('pain-treatment');
+const painChange = document.getElementById('pain-change');
+const painNote = document.getElementById('pain-note');
+const painLinkedStructure = document.getElementById('pain-linked-structure');
+const painSaveStatus = document.getElementById('pain-save-status');
+const btnLinkSelected = document.getElementById('btn-link-selected');
+const btnClearPainForm = document.getElementById('btn-clear-pain-form');
+const painRecordCount = document.getElementById('pain-record-count');
+const painRecordList = document.getElementById('pain-record-list');
+
+function getTodayISODate() {
+  const now = new Date();
+  const tzOffset = now.getTimezoneOffset() * 60000;
+  return new Date(now.getTime() - tzOffset).toISOString().slice(0, 10);
+}
+
+function loadPainRecords() {
+  try {
+    const raw = localStorage.getItem(PAIN_RECORD_STORAGE_KEY);
+    painRecords = raw ? JSON.parse(raw) : [];
+  } catch {
+    painRecords = [];
+  }
+}
+
+function persistPainRecords() {
+  localStorage.setItem(PAIN_RECORD_STORAGE_KEY, JSON.stringify(painRecords));
+}
+
+function updatePainLinkedStructure(mesh) {
+  linkedPainMesh = mesh || null;
+
+  if (linkedPainMesh) {
+    painLinkedStructure.textContent = linkedPainMesh.userData.displayName;
+    painLinkedStructure.title = linkedPainMesh.userData.englishName || linkedPainMesh.userData.displayName;
+    painLinkedStructure.classList.add('linked');
+  } else {
+    painLinkedStructure.textContent = '未关联解剖结构';
+    painLinkedStructure.removeAttribute('title');
+    painLinkedStructure.classList.remove('linked');
+  }
+}
+
+function resetPainForm() {
+  painForm.reset();
+  painDate.value = getTodayISODate();
+  painScore.value = 5;
+  painScoreValue.textContent = '5';
+  painSaveStatus.textContent = '';
+  updatePainLinkedStructure(null);
+}
+
+function getLinkedStructurePayload() {
+  if (!linkedPainMesh) return null;
+
+  return {
+    name: linkedPainMesh.userData.displayName,
+    englishName: linkedPainMesh.userData.englishName || '',
+    rawName: linkedPainMesh.userData.muscleData?.rawName || '',
+    group: linkedPainMesh.userData.muscleData?.group || '',
+  };
+}
+
+function getPainRecordPayload() {
+  return {
+    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    createdAt: new Date().toISOString(),
+    date: painDate.value || getTodayISODate(),
+    side: painSide.value,
+    region: painRegion.value,
+    score: Number(painScore.value),
+    trigger: painTrigger.value.trim(),
+    treatment: painTreatment.value,
+    change: painChange.value.trim(),
+    note: painNote.value.trim(),
+    structure: getLinkedStructurePayload(),
+  };
+}
+
+function renderPainRecords() {
+  painRecordCount.textContent = painRecords.length;
+  painRecordList.innerHTML = '';
+
+  if (painRecords.length === 0) {
+    const empty = document.createElement('li');
+    empty.className = 'pain-record-empty';
+    empty.textContent = '暂无记录';
+    painRecordList.appendChild(empty);
+    return;
+  }
+
+  for (const record of painRecords) {
+    const item = document.createElement('li');
+    item.className = 'pain-record-item';
+
+    const title = document.createElement('div');
+    title.className = 'pain-record-title';
+
+    const titleText = document.createElement('span');
+    titleText.textContent = `${record.date}｜${record.region}｜${record.score}/10`;
+    title.appendChild(titleText);
+
+    const deleteButton = document.createElement('button');
+    deleteButton.className = 'pain-record-delete';
+    deleteButton.type = 'button';
+    deleteButton.textContent = '删除';
+    deleteButton.dataset.recordId = record.id;
+    title.appendChild(deleteButton);
+
+    const meta = document.createElement('div');
+    meta.className = 'pain-record-meta';
+    const lines = [
+      `${record.side}${record.structure?.name ? `｜关联：${record.structure.name}` : ''}`,
+      `治疗：${record.treatment}`,
+      record.trigger ? `诱发：${record.trigger}` : '',
+      record.change ? `变化：${record.change}` : '',
+      record.note ? `备注：${record.note}` : '',
+    ].filter(Boolean);
+    meta.textContent = lines.join(' / ');
+
+    item.appendChild(title);
+    item.appendChild(meta);
+    painRecordList.appendChild(item);
+  }
+}
+
+function savePainRecord(event) {
+  event.preventDefault();
+  const record = getPainRecordPayload();
+  painRecords.unshift(record);
+  persistPainRecords();
+  renderPainRecords();
+  resetPainForm();
+  painSaveStatus.textContent = '已保存到本地记录';
+}
+
+painForm.addEventListener('submit', savePainRecord);
+
+painScore.addEventListener('input', () => {
+  painScoreValue.textContent = painScore.value;
+});
+
+btnLinkSelected.addEventListener('click', () => {
+  if (!selectedMesh) {
+    painLinkedStructure.textContent = '请先点击或搜索一个结构';
+    painLinkedStructure.classList.remove('linked');
+    return;
+  }
+  updatePainLinkedStructure(selectedMesh);
+});
+
+btnClearPainForm.addEventListener('click', () => {
+  resetPainForm();
+});
+
+painRecordList.addEventListener('click', (event) => {
+  const deleteButton = event.target.closest('.pain-record-delete');
+  if (!deleteButton) return;
+
+  painRecords = painRecords.filter((record) => record.id !== deleteButton.dataset.recordId);
+  persistPainRecords();
+  renderPainRecords();
+});
+
+loadPainRecords();
+resetPainForm();
+renderPainRecords();
 
 // ───────────── UI Controls ─────────────
 
@@ -500,7 +831,7 @@ searchInput.addEventListener('input', () => {
   if (query.length < 2 || muscleMeshes.length === 0) return;
 
   const matches = muscleMeshes.filter((m) =>
-    m.userData.displayName.toLowerCase().includes(query)
+    (m.userData.searchText || m.userData.displayName || '').toLowerCase().includes(query)
   );
 
   for (const mesh of matches.slice(0, 10)) {
@@ -509,15 +840,12 @@ searchInput.addEventListener('input', () => {
     div.textContent = mesh.userData.displayName;
     div.addEventListener('click', () => {
       // Select this muscle
-      if (selectedMesh) resetMeshAppearance(selectedMesh);
-      selectedMesh = mesh;
-      highlightMesh(mesh, 0.6);
+      selectMesh(mesh, { focus: true });
       showInfoPanel(mesh.userData);
       searchInput.value = '';
       searchResults.innerHTML = '';
 
-      // Zoom to muscle
-      zoomToMesh(mesh);
+      // Focus mode already moves the camera to a posterior view.
     });
     searchResults.appendChild(div);
   }
@@ -569,6 +897,11 @@ for (const [key, group] of Object.entries(MUSCLE_GROUPS)) {
 
 function updateMuscleVisibility() {
   for (const mesh of muscleMeshes) {
+    if (focusedMesh) {
+      mesh.visible = mesh === focusedMesh;
+      continue;
+    }
+
     if (hiddenMeshes.has(mesh)) {
       mesh.visible = false;
       continue;
@@ -618,6 +951,7 @@ document.getElementById('btn-reset').addEventListener('click', () => {
   setSkeletonOpacity(0.6);
   // Restore all hidden parts
   hiddenMeshes.clear();
+  focusedMesh = null;
   updateHiddenUI();
   // Clear all custom highlight colors
   for (const mesh of muscleMeshes) {
@@ -633,6 +967,7 @@ document.getElementById('btn-reset').addEventListener('click', () => {
   }
   hideInfoPanel();
   updateMuscleVisibility();
+  updateFocusButtons();
 });
 
 function animateCamera(targetPosition, lookAtTarget, duration) {
@@ -789,7 +1124,7 @@ async function initBody() {
   } catch (error) {
     console.error('Failed to load anatomy model:', error);
     if (loadingText) {
-      loadingText.textContent = 'Failed to load anatomy model. Check console for details.';
+      loadingText.textContent = '解剖模型加载失败，请检查文件是否完整。';
       loadingText.style.color = '#e74c3c';
     }
   }
