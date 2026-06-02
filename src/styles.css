@@ -186,6 +186,44 @@ body {
   color: #fff;
 }
 
+#mechanism-topic-buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.mechanism-topic-btn {
+  min-height: 34px;
+  padding: 6px 8px;
+  font-size: 11px;
+  line-height: 1.25;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-muted);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+}
+
+.mechanism-topic-btn:hover {
+  border-color: #ffd166;
+  color: var(--text);
+}
+
+.mechanism-topic-btn.active {
+  background: rgba(255, 209, 102, 0.16);
+  border-color: rgba(255, 209, 102, 0.7);
+  color: #ffe7a3;
+}
+
+#mechanism-topic-status {
+  margin-top: 8px;
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
 /* View buttons */
 .button-row {
   display: flex;
@@ -261,6 +299,7 @@ body {
 .pain-actions button,
 .pain-export-actions button,
 .pain-detail-actions button,
+.mechanism-detail-actions button,
 .pain-record-delete {
   padding: 7px 9px;
   font-size: 11px;
@@ -277,6 +316,7 @@ body {
 .pain-actions button:hover,
 .pain-export-actions button:hover:not(:disabled),
 .pain-detail-actions button:hover:not(:disabled),
+.mechanism-detail-actions button:hover:not(:disabled),
 .pain-record-delete:hover {
   background: rgba(233, 69, 96, 0.2);
   border-color: var(--accent);
@@ -445,7 +485,8 @@ input[type="range"]::-webkit-slider-thumb {
 
 /* Right panels */
 #info-panel,
-#pain-detail-panel {
+#pain-detail-panel,
+#mechanism-detail-panel {
   position: absolute;
   top: 60px;
   right: 16px;
@@ -459,14 +500,16 @@ input[type="range"]::-webkit-slider-thumb {
 }
 
 #info-panel.hidden,
-#pain-detail-panel.hidden {
+#pain-detail-panel.hidden,
+#mechanism-detail-panel.hidden {
   opacity: 0;
   transform: translateX(20px);
   pointer-events: none;
 }
 
 #info-close,
-#pain-detail-close {
+#pain-detail-close,
+#mechanism-detail-close {
   position: absolute;
   top: 8px;
   right: 12px;
@@ -479,12 +522,14 @@ input[type="range"]::-webkit-slider-thumb {
 }
 
 #info-close:hover,
-#pain-detail-close:hover {
+#pain-detail-close:hover,
+#mechanism-detail-close:hover {
   color: var(--accent);
 }
 
 #info-name,
-#pain-detail-title {
+#pain-detail-title,
+#mechanism-detail-title {
   font-size: 18px;
   font-weight: 700;
   margin-bottom: 6px;
@@ -492,6 +537,17 @@ input[type="range"]::-webkit-slider-thumb {
 }
 
 .pain-score-badge {
+  display: inline-block;
+  font-size: 11px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  margin-bottom: 12px;
+  color: #15151f;
+  background: #ffd166;
+  font-weight: 700;
+}
+
+.mechanism-badge {
   display: inline-block;
   font-size: 11px;
   padding: 4px 10px;
@@ -543,6 +599,42 @@ input[type="range"]::-webkit-slider-thumb {
   font-size: 13px;
   line-height: 1.6;
   color: var(--text-muted);
+}
+
+#mechanism-detail-body {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-muted);
+}
+
+.mechanism-section {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.mechanism-section:last-child {
+  border-bottom: none;
+}
+
+.mechanism-section h3 {
+  color: var(--text);
+  font-size: 12px;
+  margin-bottom: 5px;
+}
+
+.mechanism-section p,
+.mechanism-section ul {
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.mechanism-section ul {
+  padding-left: 16px;
+}
+
+.mechanism-detail-actions {
+  margin-top: 14px;
 }
 
 .pain-detail-row {

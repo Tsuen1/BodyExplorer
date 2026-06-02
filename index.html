@@ -96,6 +96,12 @@
           <p id="layer-peel-description">显示腰背相关结构，用滑块逐步去掉外层。</p>
         </div>
 
+        <div class="control-group mechanism-topic-panel">
+          <label>疼痛机制专题</label>
+          <div id="mechanism-topic-buttons"></div>
+          <p id="mechanism-topic-status">选择一个专题，查看相关深层肌肉与筋膜。</p>
+        </div>
+
         <div class="control-group pain-record-panel">
           <label>疼痛记录</label>
           <form id="pain-form">
@@ -214,6 +220,17 @@
         <div class="button-row pain-detail-actions">
           <button id="btn-pain-detail-focus" type="button">定位疼痛点</button>
           <button id="btn-pain-detail-structure" type="button">查看关联结构</button>
+        </div>
+      </div>
+
+      <div id="mechanism-detail-panel" class="hidden">
+        <button id="mechanism-detail-close">&times;</button>
+        <h2 id="mechanism-detail-title">疼痛机制专题</h2>
+        <span id="mechanism-detail-badge" class="mechanism-badge"></span>
+        <div id="mechanism-detail-body"></div>
+        <div class="button-row mechanism-detail-actions">
+          <button id="btn-mechanism-back-view" type="button">背面观察</button>
+          <button id="btn-clear-mechanism-topic" type="button">退出专题</button>
         </div>
       </div>
 

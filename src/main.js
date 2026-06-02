@@ -218,6 +218,7 @@ let hoveredMesh = null;
 let selectedMesh = null;
 let focusedMesh = null;
 let activePainRecordId = null;
+let activeMechanismTopicId = null;
 
 canvas.addEventListener('mousemove', onMouseMove);
 canvas.addEventListener('click', onClick);
@@ -281,6 +282,7 @@ function onClick(event) {
   } else {
     hideInfoPanel();
     hidePainDetailPanel();
+    hideMechanismDetailPanel();
   }
 }
 
@@ -336,6 +338,7 @@ infoClose.addEventListener('click', () => {
 
 function showInfoPanel(userData) {
   hidePainDetailPanel();
+  hideMechanismDetailPanel();
 
   const data = userData.muscleData;
   const info = data.info;
@@ -768,6 +771,7 @@ function moveCameraToLayerPeelView() {
 
 toggleLayerPeel.addEventListener('change', () => {
   if (isLayerPeelEnabled()) {
+    clearMechanismTopic();
     focusedMesh = null;
     if (selectedMesh) {
       resetMeshAppearance(selectedMesh);
@@ -788,6 +792,336 @@ layerPeelSlider.addEventListener('input', () => {
 });
 
 updateLayerPeelUI();
+
+// ───────────── Pain Mechanism Topics ─────────────
+
+const MECHANISM_TOPICS = [
+  {
+    id: 'deep-stabilizers',
+    label: '多裂肌稳定',
+    badge: '深层稳定肌',
+    view: 'back',
+    keywords: ['multifidus', 'rotatores', 'interspinalis', 'intertransversarii'],
+    sections: [
+      {
+        title: '观察重点',
+        text: '多裂肌、回旋肌、棘间肌和横突间肌位于脊柱深层，贴近椎体节段，适合用来观察局部节段稳定与腰背深层控制。',
+      },
+      {
+        title: '可能相关机制',
+        text: '这些结构更偏向精细稳定和姿势控制，而不是产生大幅度动作。腰部疼痛、保护性紧张或运动控制下降时，医生常会关注深层稳定肌是否参与不足或代偿紧张。',
+      },
+      {
+        title: '沟通提示',
+        text: '记录时可标注疼痛是否与久坐、弯腰后起身、旋转、单腿支撑或运动后疲劳有关。训练和放松方案应由医生或康复师确认。',
+      },
+    ],
+  },
+  {
+    id: 'thoracolumbar-fascia',
+    label: '胸腰筋膜',
+    badge: '筋膜力传递',
+    view: 'back',
+    keywords: [
+      'thoracolumbar fascia',
+      'latissimus dorsi',
+      'gluteus maximus',
+      'erector',
+      'iliocostalis',
+      'longissimus',
+      'internal oblique',
+      'transversus abdominis',
+    ],
+    sections: [
+      {
+        title: '观察重点',
+        text: '胸腰筋膜覆盖并连接腰背、腹壁和骨盆周围结构，是腰背部力传递和张力分布的重要通道。',
+      },
+      {
+        title: '可能相关机制',
+        text: '当背阔肌、臀大肌、腹横肌、腹内斜肌和竖脊肌等结构协同变化时，胸腰筋膜张力也可能改变，影响腰背和骶髂区域的受力感受。',
+      },
+      {
+        title: '沟通提示',
+        text: '适合和医生讨论疼痛是否呈片状、带状、牵拉样，或是否随躯干旋转、呼吸、步态和骨盆控制变化。',
+      },
+    ],
+  },
+  {
+    id: 'quadratus-lumborum',
+    label: '腰方肌',
+    badge: '腰背侧链',
+    view: 'posterolateral',
+    keywords: ['quadratus lumborum', 'iliocostalis', 'psoas major', 'thoracolumbar fascia'],
+    sections: [
+      {
+        title: '观察重点',
+        text: '腰方肌位于后腹壁深层，连接髂嵴、腰椎横突和第十二肋，常用于观察腰背侧方稳定、侧屈和骨盆-肋骨之间的关系。',
+      },
+      {
+        title: '可能相关机制',
+        text: '腰方肌与腰椎侧屈、腰部稳定和呼吸辅助有关。单侧负荷、骨盆倾斜、步态不对称或久坐后起身不适时，可以把它作为讨论对象。',
+      },
+      {
+        title: '沟通提示',
+        text: '如果疼痛偏一侧腰部、髂嵴上方或靠近第十二肋，可记录左右侧、诱发姿势和触诊反馈。',
+      },
+    ],
+  },
+  {
+    id: 'iliopsoas',
+    label: '腰大肌 / 髂肌',
+    badge: '髋屈肌群',
+    view: 'front',
+    keywords: ['psoas major', 'iliacus'],
+    sections: [
+      {
+        title: '观察重点',
+        text: '腰大肌从腰椎前外侧区域走向股骨小转子，和髂肌共同形成髂腰肌，主要参与髋关节屈曲，也与腰椎和髋部稳定有关。',
+      },
+      {
+        title: '可能相关机制',
+        text: '久坐、髋部屈曲负荷、骨盆前倾或腰髋控制不佳时，腰大肌和髂肌常被纳入评估。深部放松不适合自行强按，应由专业人员判断。',
+      },
+      {
+        title: '沟通提示',
+        text: '可记录疼痛是否与坐久、跑跳、抬腿、髋前侧紧张或腰部前侧牵拉感有关。',
+      },
+    ],
+  },
+  {
+    id: 'sacroiliac-stability',
+    label: '骶髂稳定',
+    badge: '骨盆环',
+    view: 'posterolateral',
+    keywords: [
+      'gluteus maximus',
+      'gluteus medius',
+      'gluteus minimus',
+      'piriformis',
+      'obturator',
+      'gemellus',
+      'quadratus femoris',
+      'coccygeus',
+      'iliococcygeus',
+      'pubococcygeus',
+    ],
+    sections: [
+      {
+        title: '观察重点',
+        text: '骶髂区域稳定依赖骨盆关节形态、韧带结构和周围肌群协同。模型中可重点观察臀肌群、梨状肌、闭孔肌、孖肌和骨盆底相关结构。',
+      },
+      {
+        title: '可能相关机制',
+        text: '单腿站立、跑跳、上下楼、步态不对称或骨盆控制不足时，骶髂区域可能出现负荷敏感。疼痛来源需要医生结合查体判断。',
+      },
+      {
+        title: '沟通提示',
+        text: '记录疼痛是否靠近髂后上棘、臀深部、骶骨旁，是否与单腿支撑、翻身、坐站转换或运动后加重相关。',
+      },
+    ],
+  },
+  {
+    id: 'suboccipital-neck',
+    label: '枕下 / 颈后',
+    badge: '头颈深层',
+    view: 'back',
+    keywords: ['rectus capitis posterior', 'semispinalis capitis', 'splenius capitis', 'splenius cervicis'],
+    sections: [
+      {
+        title: '观察重点',
+        text: '枕下肌群和颈后深层肌肉位于枕骨下方与上颈椎附近，适合观察枕后痛、后颈部紧张和头颈姿势控制。',
+      },
+      {
+        title: '可能相关机制',
+        text: '长时间低头、头前伸姿势、颈椎小关节负荷或保护性紧张时，枕下和颈后深层结构可能成为医生查体关注点。',
+      },
+      {
+        title: '沟通提示',
+        text: '可记录疼痛是否与低头学习、屏幕时间、仰头、转头、头痛样牵涉或触诊敏感有关。',
+      },
+    ],
+  },
+];
+
+const mechanismTopicButtons = document.getElementById('mechanism-topic-buttons');
+const mechanismTopicStatus = document.getElementById('mechanism-topic-status');
+const mechanismDetailPanel = document.getElementById('mechanism-detail-panel');
+const mechanismDetailClose = document.getElementById('mechanism-detail-close');
+const mechanismDetailTitle = document.getElementById('mechanism-detail-title');
+const mechanismDetailBadge = document.getElementById('mechanism-detail-badge');
+const mechanismDetailBody = document.getElementById('mechanism-detail-body');
+const btnMechanismBackView = document.getElementById('btn-mechanism-back-view');
+const btnClearMechanismTopic = document.getElementById('btn-clear-mechanism-topic');
+
+function getActiveMechanismTopic() {
+  return MECHANISM_TOPICS.find((topic) => topic.id === activeMechanismTopicId) || null;
+}
+
+function getMeshRawName(mesh) {
+  return (mesh.userData.muscleData?.rawName || '').toLowerCase().replace(/_/g, ' ');
+}
+
+function meshMatchesMechanismTopic(mesh, topic) {
+  const rawName = getMeshRawName(mesh);
+  return topic.keywords.some((keyword) => rawName.includes(keyword));
+}
+
+function getMechanismTopicMeshes(topic) {
+  if (!topic) return [];
+  return muscleMeshes.filter((mesh) => meshMatchesMechanismTopic(mesh, topic));
+}
+
+function isMechanismTopicEnabled() {
+  return Boolean(activeMechanismTopicId);
+}
+
+function shouldShowForMechanismTopic(mesh) {
+  const topic = getActiveMechanismTopic();
+  return Boolean(topic && meshMatchesMechanismTopic(mesh, topic));
+}
+
+function renderMechanismTopicButtons() {
+  mechanismTopicButtons.innerHTML = '';
+
+  for (const topic of MECHANISM_TOPICS) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'mechanism-topic-btn';
+    button.textContent = topic.label;
+    button.dataset.topicId = topic.id;
+    button.addEventListener('click', () => {
+      activateMechanismTopic(topic.id);
+    });
+    mechanismTopicButtons.appendChild(button);
+  }
+
+  updateMechanismTopicButtons();
+}
+
+function updateMechanismTopicButtons() {
+  mechanismTopicButtons.querySelectorAll('.mechanism-topic-btn').forEach((button) => {
+    button.classList.toggle('active', button.dataset.topicId === activeMechanismTopicId);
+  });
+}
+
+function updateMechanismTopicStatus() {
+  const topic = getActiveMechanismTopic();
+
+  if (!topic) {
+    mechanismTopicStatus.textContent = '选择一个专题，查看相关深层肌肉与筋膜。';
+    return;
+  }
+
+  const count = getMechanismTopicMeshes(topic).length;
+  mechanismTopicStatus.textContent = `${topic.label}：当前模型中显示 ${count} 个相关结构`;
+}
+
+function renderMechanismDetailPanel(topic) {
+  if (!topic) return;
+
+  const structures = getMechanismTopicMeshes(topic)
+    .map((mesh) => mesh.userData.displayName)
+    .filter(Boolean);
+  const structureList = structures.length
+    ? `<ul>${structures.slice(0, 12).map((name) => `<li>${escapeHTML(name)}</li>`).join('')}</ul>`
+    : '<p class="source-text">当前模型暂未匹配到相关结构。</p>';
+
+  mechanismDetailTitle.textContent = topic.label;
+  mechanismDetailBadge.textContent = topic.badge;
+  mechanismDetailBody.innerHTML = [
+    ...topic.sections.map((section) => `
+      <div class="mechanism-section">
+        <h3>${escapeHTML(section.title)}</h3>
+        <p>${escapeHTML(section.text)}</p>
+      </div>
+    `),
+    `
+      <div class="mechanism-section">
+        <h3>当前显示结构</h3>
+        ${structureList}
+      </div>
+    `,
+    `
+      <div class="mechanism-section">
+        <h3>使用边界</h3>
+        <p>本专题用于解剖学习和医患沟通，不替代诊断、手法治疗或康复处方。任何放松、拉伸、训练和干预方案都应由医生或康复师结合 Easton 的查体结果确认。</p>
+      </div>
+    `,
+  ].join('');
+  mechanismDetailPanel.classList.remove('hidden');
+}
+
+function hideMechanismDetailPanel() {
+  mechanismDetailPanel.classList.add('hidden');
+}
+
+function moveCameraToMechanismTopic(topic) {
+  const meshes = getMechanismTopicMeshes(topic);
+  const dist = defaultCameraPos.distanceTo(defaultLookAt);
+
+  if (meshes.length === 0) {
+    animateCamera(defaultCameraPos.clone(), defaultLookAt.clone(), 800);
+    return;
+  }
+
+  const box = new THREE.Box3();
+  for (const mesh of meshes) {
+    box.expandByObject(mesh);
+  }
+
+  const center = box.getCenter(new THREE.Vector3());
+  const size = box.getSize(new THREE.Vector3());
+  const topicDist = Math.max(size.length() * 1.4, dist * 0.42, 10);
+  let cameraPos;
+
+  if (topic.view === 'front') {
+    cameraPos = new THREE.Vector3(center.x, center.y + 0.5, center.z + topicDist);
+  } else if (topic.view === 'posterolateral') {
+    cameraPos = new THREE.Vector3(center.x + topicDist * 0.65, center.y + 0.5, center.z - topicDist * 0.75);
+  } else {
+    cameraPos = new THREE.Vector3(center.x, center.y + 0.5, center.z - topicDist);
+  }
+
+  animateCamera(cameraPos, center, 900);
+}
+
+function activateMechanismTopic(topicId) {
+  const topic = MECHANISM_TOPICS.find((item) => item.id === topicId);
+  if (!topic) return;
+
+  activeMechanismTopicId = topic.id;
+  focusedMesh = null;
+  toggleLayerPeel.checked = false;
+  layerPeelSlider.value = 0;
+  updateLayerPeelUI();
+
+  if (selectedMesh) {
+    resetMeshAppearance(selectedMesh);
+    selectedMesh = null;
+  }
+
+  hideInfoPanel();
+  hidePainDetailPanel();
+  updateMechanismTopicButtons();
+  updateMechanismTopicStatus();
+  renderMechanismDetailPanel(topic);
+  updateFocusButtons();
+  updateMuscleVisibility();
+  moveCameraToMechanismTopic(topic);
+}
+
+function clearMechanismTopic(options = {}) {
+  activeMechanismTopicId = null;
+  updateMechanismTopicButtons();
+  updateMechanismTopicStatus();
+  if (!options.keepPanel) {
+    hideMechanismDetailPanel();
+  }
+  updateMuscleVisibility();
+}
+
+renderMechanismTopicButtons();
 
 // ───────────── Pain Records ─────────────
 
@@ -1080,6 +1414,7 @@ function showPainDetailPanel(record) {
   if (!record) return;
 
   hideInfoPanel();
+  hideMechanismDetailPanel();
   painDetailTitle.textContent = `${record.date}｜${record.region}`;
   painDetailScore.textContent = `疼痛 ${record.score}/10｜${getPainScoreLabel(record.score)}`;
   painDetailScore.style.background = getPainScoreColor(record.score);
@@ -1376,6 +1711,19 @@ painDetailClose.addEventListener('click', () => {
   hidePainDetailPanel();
 });
 
+mechanismDetailClose.addEventListener('click', () => {
+  hideMechanismDetailPanel();
+});
+
+btnMechanismBackView.addEventListener('click', () => {
+  const topic = getActiveMechanismTopic();
+  if (topic) moveCameraToMechanismTopic({ ...topic, view: 'back' });
+});
+
+btnClearMechanismTopic.addEventListener('click', () => {
+  clearMechanismTopic();
+});
+
 btnPainDetailFocus.addEventListener('click', () => {
   if (!activePainRecordId) return;
   focusPainMarkerByRecord(activePainRecordId);
@@ -1492,6 +1840,10 @@ const activeGroups = new Set(Object.keys(MUSCLE_GROUPS));
 function setAllMuscleGroups(active, options = {}) {
   if (options.clearFocus) {
     focusedMesh = null;
+    activeMechanismTopicId = null;
+    hideMechanismDetailPanel();
+    updateMechanismTopicButtons();
+    updateMechanismTopicStatus();
   }
 
   activeGroups.clear();
@@ -1515,6 +1867,7 @@ for (const [key, group] of Object.entries(MUSCLE_GROUPS)) {
   btn.style.borderColor = group.color;
 
   btn.addEventListener('click', () => {
+    clearMechanismTopic();
     btn.classList.toggle('active');
     if (activeGroups.has(key)) {
       activeGroups.delete(key);
@@ -1549,6 +1902,11 @@ function updateMuscleVisibility() {
 
     if (isLayerPeelEnabled()) {
       mesh.visible = shouldShowForLayerPeel(mesh);
+      continue;
+    }
+
+    if (isMechanismTopicEnabled()) {
+      mesh.visible = shouldShowForMechanismTopic(mesh);
       continue;
     }
 
@@ -1596,6 +1954,9 @@ document.getElementById('btn-reset').addEventListener('click', () => {
   toggleLayerPeel.checked = false;
   layerPeelSlider.value = 0;
   updateLayerPeelUI();
+  activeMechanismTopicId = null;
+  updateMechanismTopicButtons();
+  updateMechanismTopicStatus();
   togglePainMarkers.checked = true;
   painMarkerGroup.visible = true;
   activePainRecordId = null;
@@ -1619,6 +1980,7 @@ document.getElementById('btn-reset').addEventListener('click', () => {
   }
   hideInfoPanel();
   hidePainDetailPanel();
+  hideMechanismDetailPanel();
   updateMuscleVisibility();
   updateFocusButtons();
 });
