@@ -7,6 +7,7 @@ const SIDE_LABELS = {
 export const TYPE_LABELS = {
   muscle: '肌肉',
   tendon: '腱 / 韧带 / 筋膜',
+  bone: '骨骼',
 };
 
 export const COLOR_LABELS = {

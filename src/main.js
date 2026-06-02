@@ -1,6 +1,12 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { buildBody, highlightMaterial, selectedMaterial, boneMaterial } from './bodyBuilder.js';
+import {
+  loadHighPrecisionModels,
+  highPrecisionBoneMaterial,
+  highPrecisionFocusMaterial,
+  highPrecisionReferenceMaterial,
+} from './highPrecisionModels.js';
 import { MUSCLE_GROUPS } from './muscleData.js';
 import { COLOR_LABELS, TYPE_LABELS, getChineseMuscleInfo } from './zhTerms.js';
 
@@ -197,6 +203,9 @@ function hideLoadingOverlay() {
 let muscleMeshes = [];
 let skeletonGroup = null;
 let bodyGroup = null;
+let highPrecisionModels = null;
+let highPrecisionGroup = null;
+let highPrecisionMeshes = [];
 const painMarkerGroup = new THREE.Group();
 scene.add(painMarkerGroup);
 
@@ -221,9 +230,18 @@ let activePainRecordId = null;
 let activeMechanismTopicId = null;
 let activePainAreaId = null;
 let activeNeckDetailId = null;
+let activeHighPrecisionMode = 'full';
 
 canvas.addEventListener('mousemove', onMouseMove);
 canvas.addEventListener('click', onClick);
+
+function getVisibleInteractiveMeshes() {
+  const visibleMuscles = muscleMeshes.filter((mesh) => mesh.visible);
+  const visibleHighPrecisionMeshes = isHighPrecisionEnabled()
+    ? highPrecisionMeshes.filter((mesh) => mesh.visible)
+    : [];
+  return [...visibleMuscles, ...visibleHighPrecisionMeshes];
+}
 
 function onMouseMove(event) {
   if (muscleMeshes.length === 0) return;
@@ -233,7 +251,7 @@ function onMouseMove(event) {
 
   raycaster.setFromCamera(mouse, camera);
   const markerIntersects = raycaster.intersectObjects(getVisiblePainMarkers(), false);
-  const visibleMeshes = muscleMeshes.filter(m => m.visible);
+  const visibleMeshes = getVisibleInteractiveMeshes();
   const intersects = raycaster.intersectObjects(visibleMeshes, false);
 
   // Unhover previous
@@ -265,7 +283,7 @@ function onClick(event) {
 
   raycaster.setFromCamera(mouse, camera);
   const markerIntersects = raycaster.intersectObjects(getVisiblePainMarkers(), false);
-  const visibleMeshes = muscleMeshes.filter(m => m.visible);
+  const visibleMeshes = getVisibleInteractiveMeshes();
   const intersects = raycaster.intersectObjects(visibleMeshes, false);
 
   // Deselect previous
@@ -343,8 +361,9 @@ function showInfoPanel(userData) {
   hideMechanismDetailPanel();
 
   const data = userData.muscleData;
-  const info = data.info;
+  const info = data.info || {};
   const zhInfo = getChineseMuscleInfo(data.rawName);
+  const isBone = data.type === 'bone';
 
   infoName.textContent = userData.displayName;
   infoType.textContent = TYPE_LABELS[data.type] || data.type;
@@ -352,9 +371,13 @@ function showInfoPanel(userData) {
 
   let html = '';
   html += `<p><strong>英文原名：</strong> ${escapeHTML(data.englishName || userData.englishName || data.rawName)}</p>`;
-  html += `<p><strong>分类：</strong> ${escapeHTML(MUSCLE_GROUPS[data.group]?.label || data.group)}</p>`;
+  html += `<p><strong>分类：</strong> ${escapeHTML(isBone ? '高精度骨骼模型' : MUSCLE_GROUPS[data.group]?.label || data.group)}</p>`;
 
-  if (data.type === 'muscle') {
+  if (isBone) {
+    html += `<p><strong>来源：</strong> ${escapeHTML(info.source || 'Open3DModel')}</p>`;
+    html += `<p><strong>授权：</strong> ${escapeHTML(info.license || 'Creative Commons Attribution-ShareAlike 4.0')}</p>`;
+    html += `<p><strong>用途：</strong> ${escapeHTML(info.notes || '用于解剖学习和医患沟通，不替代诊断。')}</p>`;
+  } else if (data.type === 'muscle') {
     html += `<p><strong>起点：</strong> ${formatAnatomyDetail(zhInfo?.origin, info.origin)}</p>`;
     html += `<p><strong>止点：</strong> ${formatAnatomyDetail(zhInfo?.insertion, info.insertion)}</p>`;
     html += `<p><strong>主要作用：</strong> ${formatAnatomyDetail(zhInfo?.action, info.action)}</p>`;
@@ -376,8 +399,7 @@ function showInfoPanel(userData) {
   const infoLinks = document.getElementById('info-links');
   infoLinks.innerHTML = '';
   const searchTerm = getAnatomySearchTerm(data.rawName);
-  const wikiUrl = `https://en.wikipedia.org/wiki/${encodeURIComponent(searchTerm.replace(/\s+/g, '_'))}_muscle`;
-  const wikiSearchUrl = `https://en.wikipedia.org/w/index.php?search=${encodeURIComponent(searchTerm + ' muscle anatomy')}`;
+  const wikiSearchUrl = `https://en.wikipedia.org/w/index.php?search=${encodeURIComponent(searchTerm + (isBone ? ' bone anatomy' : ' muscle anatomy'))}`;
   const kenHubUrl = `https://www.kenhub.com/en/search?q=${encodeURIComponent(searchTerm)}`;
 
   const wikiLink = document.createElement('a');
@@ -394,7 +416,20 @@ function showInfoPanel(userData) {
   kenHubLink.textContent = '英文资料：Kenhub';
   infoLinks.appendChild(kenHubLink);
 
+  if (isBone && userData.highPrecisionSource?.url) {
+    const sourceLink = document.createElement('a');
+    sourceLink.href = userData.highPrecisionSource.url;
+    sourceLink.target = '_blank';
+    sourceLink.rel = 'noopener noreferrer';
+    sourceLink.textContent = '模型来源：Open3DModel';
+    infoLinks.appendChild(sourceLink);
+  }
+
   infoPanel.classList.remove('hidden');
+
+  const colorPicker = document.getElementById('info-color-picker');
+  if (colorPicker) colorPicker.style.display = isBone ? 'none' : '';
+  if (btnHidePart) btnHidePart.style.display = isBone ? 'none' : '';
 
   // Update color picker swatch active states
   updateColorSwatchStates();
@@ -428,6 +463,7 @@ function formatAnatomyDetail(zhValue, englishValue) {
 function getAnatomySearchTerm(rawName) {
   let term = rawName.toLowerCase()
     .replace(/\s*\(\d+\)\s*$/, '')            // remove (2), (3) etc
+    .replace(/\.[rl]$/, '')                   // remove Open3DModel right/left suffix
     .replace(/_/g, ' ')
     .replace(/\b(left|right)\b/g, '')          // remove left/right
     .replace(/\b\w+\s+part\s+of\s+/g, '')     // "abdominal part of" -> ""
@@ -583,6 +619,7 @@ function getPreferredFocusView(mesh) {
 function clearFocus() {
   focusedMesh = null;
   updateMuscleVisibility();
+  updateHighPrecisionVisibility();
   if (selectedMesh) highlightMesh(selectedMesh, 0.6);
   updateFocusButtons();
 }
@@ -794,6 +831,261 @@ layerPeelSlider.addEventListener('input', () => {
 });
 
 updateLayerPeelUI();
+
+// ───────────── High Precision Model Trial (v0.10) ─────────────
+
+const HIGH_PRECISION_MODES = [
+  {
+    id: 'full',
+    label: '全身骨骼',
+    view: 'front',
+    roles: ['skeleton'],
+    description: '显示 Open3DModel 高精度全身骨骼；适合和医生整体沟通骨骼位置。',
+  },
+  {
+    id: 'lumbar-pelvis',
+    label: '腰骶重点',
+    view: 'back',
+    roles: ['skeleton'],
+    keywords: ['lumbar vertebrae', 'sacrum', 'coccyx', 'hip bone'],
+    description: '突出腰椎、骶骨、尾骨和髋骨，便于观察腰部与骶髂区域。',
+  },
+  {
+    id: 'cervical',
+    label: '颈椎重点',
+    view: 'back',
+    roles: ['skeleton'],
+    keywords: ['atlas', 'axis', 'cervical vertebrae', 'occipital bone'],
+    description: '突出枕骨、寰椎、枢椎和颈椎，便于观察枕后与后颈部。',
+  },
+  {
+    id: 'vertebrae-reference',
+    label: '典型椎骨',
+    view: 'front',
+    roles: ['reference'],
+    description: '显示 3 块独立典型椎骨参考模型，用于解释颈椎、胸椎、腰椎形态差异，不代表完整脊柱。',
+  },
+];
+
+const toggleHighPrecision = document.getElementById('toggle-high-precision');
+const highPrecisionButtons = document.getElementById('high-precision-buttons');
+const highPrecisionStatus = document.getElementById('high-precision-status');
+
+function getActiveHighPrecisionMode() {
+  return HIGH_PRECISION_MODES.find((mode) => mode.id === activeHighPrecisionMode) || HIGH_PRECISION_MODES[0];
+}
+
+function isHighPrecisionEnabled() {
+  return Boolean(toggleHighPrecision?.checked && highPrecisionGroup && document.getElementById('toggle-skeleton')?.checked);
+}
+
+function getHighPrecisionRawName(mesh) {
+  return (mesh.userData.muscleData?.rawName || '').toLowerCase().replace(/_/g, ' ');
+}
+
+function meshMatchesHighPrecisionMode(mesh, mode) {
+  if (!mode.roles.includes(mesh.userData.highPrecisionRole)) return false;
+  if (!mode.keywords) return true;
+
+  const rawName = getHighPrecisionRawName(mesh);
+  return mode.keywords.some((keyword) => rawName.includes(keyword));
+}
+
+function getHighPrecisionModeMeshes(mode = getActiveHighPrecisionMode()) {
+  return highPrecisionMeshes.filter((mesh) => meshMatchesHighPrecisionMode(mesh, mode));
+}
+
+function renderHighPrecisionButtons() {
+  if (!highPrecisionButtons) return;
+  highPrecisionButtons.innerHTML = '';
+
+  for (const mode of HIGH_PRECISION_MODES) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'high-precision-btn';
+    button.textContent = mode.label;
+    button.dataset.modeId = mode.id;
+    button.disabled = true;
+    button.addEventListener('click', () => {
+      activateHighPrecisionMode(mode.id);
+    });
+    highPrecisionButtons.appendChild(button);
+  }
+
+  updateHighPrecisionButtons();
+}
+
+function updateHighPrecisionButtons() {
+  if (!highPrecisionButtons) return;
+
+  highPrecisionButtons.querySelectorAll('.high-precision-btn').forEach((button) => {
+    button.classList.toggle('active', button.dataset.modeId === activeHighPrecisionMode);
+    button.disabled = !highPrecisionGroup;
+  });
+}
+
+function updateHighPrecisionStatus() {
+  if (!highPrecisionStatus) return;
+
+  if (!highPrecisionGroup) {
+    highPrecisionStatus.textContent = '高精度骨骼正在后台加载，加载完成后可启用。';
+    return;
+  }
+
+  if (!document.getElementById('toggle-skeleton')?.checked) {
+    highPrecisionStatus.textContent = '骨骼显示已关闭；打开“显示骨骼”后可使用高精度层。';
+    return;
+  }
+
+  if (!toggleHighPrecision?.checked) {
+    highPrecisionStatus.textContent = '标准骨骼正在显示；需要更真实骨骼时可启用高精度层。';
+    return;
+  }
+
+  const mode = getActiveHighPrecisionMode();
+  const count = highPrecisionMeshes.filter((mesh) => mesh.visible).length;
+  highPrecisionStatus.textContent = `${mode.label}：显示 ${count} 个 Open3DModel 高精度结构；标准骨骼已自动隐藏。`;
+}
+
+function getHighPrecisionMaterial(mesh, mode) {
+  if (mesh.userData.highPrecisionRole === 'reference') return highPrecisionReferenceMaterial;
+  if (mode.id !== 'full' && meshMatchesHighPrecisionMode(mesh, mode)) return highPrecisionFocusMaterial;
+  return highPrecisionBoneMaterial;
+}
+
+function updateHighPrecisionVisibility() {
+  const skeletonChecked = Boolean(document.getElementById('toggle-skeleton')?.checked);
+  const enabled = isHighPrecisionEnabled();
+
+  if (skeletonGroup) {
+    skeletonGroup.visible = skeletonChecked && !enabled;
+  }
+
+  if (!highPrecisionGroup) {
+    updateHighPrecisionStatus();
+    return;
+  }
+
+  const mode = getActiveHighPrecisionMode();
+  const focusedHighPrecisionMesh = highPrecisionMeshes.includes(focusedMesh);
+  highPrecisionGroup.visible = enabled;
+
+  for (const mesh of highPrecisionMeshes) {
+    if (!enabled) {
+      mesh.visible = false;
+      continue;
+    }
+
+    if (focusedHighPrecisionMesh) {
+      mesh.visible = mesh === focusedMesh;
+    } else {
+      mesh.visible = !hiddenMeshes.has(mesh) && meshMatchesHighPrecisionMode(mesh, mode);
+    }
+
+    if (mesh !== selectedMesh) {
+      mesh.material = getHighPrecisionMaterial(mesh, mode);
+    }
+  }
+
+  updateHighPrecisionStatus();
+}
+
+function activateHighPrecisionMode(modeId) {
+  const mode = HIGH_PRECISION_MODES.find((item) => item.id === modeId);
+  if (!mode) return;
+
+  activeHighPrecisionMode = mode.id;
+  if (toggleHighPrecision) toggleHighPrecision.checked = true;
+
+  if (focusedMesh && highPrecisionMeshes.includes(focusedMesh)) {
+    focusedMesh = null;
+  }
+
+  updateHighPrecisionButtons();
+  updateHighPrecisionVisibility();
+  moveCameraToHighPrecisionMode(mode);
+}
+
+function moveCameraToHighPrecisionMode(mode) {
+  const meshes = getHighPrecisionModeMeshes(mode);
+  if (!meshes.length) {
+    animateCamera(defaultCameraPos.clone(), defaultLookAt.clone(), 800);
+    return;
+  }
+
+  const box = new THREE.Box3();
+  for (const mesh of meshes) {
+    box.expandByObject(mesh);
+  }
+
+  const center = box.getCenter(new THREE.Vector3());
+  const size = box.getSize(new THREE.Vector3());
+  const baseDist = defaultCameraPos.distanceTo(defaultLookAt);
+  const dist = Math.max(size.length() * 1.55, baseDist * 0.36, 8);
+  let cameraPos;
+
+  if (mode.view === 'back') {
+    cameraPos = new THREE.Vector3(center.x, center.y + 0.5, center.z - dist);
+  } else {
+    cameraPos = new THREE.Vector3(center.x, center.y + 0.5, center.z + dist);
+  }
+
+  animateCamera(cameraPos, center, 900);
+}
+
+function alignHighPrecisionGroupToBody(targetBox) {
+  if (!highPrecisionGroup || !highPrecisionModels?.skeletonGroup) return;
+
+  highPrecisionGroup.visible = true;
+  highPrecisionGroup.updateMatrixWorld(true);
+  const sourceBox = new THREE.Box3().setFromObject(highPrecisionModels.skeletonGroup);
+  const sourceCenter = sourceBox.getCenter(new THREE.Vector3());
+  const sourceSize = sourceBox.getSize(new THREE.Vector3());
+  const targetCenter = targetBox.getCenter(new THREE.Vector3());
+  const targetSize = targetBox.getSize(new THREE.Vector3());
+  const scale = targetSize.y / sourceSize.y;
+
+  highPrecisionGroup.scale.setScalar(scale);
+  highPrecisionGroup.position.set(
+    targetCenter.x - sourceCenter.x * scale,
+    targetCenter.y - sourceCenter.y * scale,
+    targetCenter.z - sourceCenter.z * scale
+  );
+  highPrecisionGroup.updateMatrixWorld(true);
+  highPrecisionGroup.visible = false;
+}
+
+async function initHighPrecisionModels(targetBox) {
+  updateHighPrecisionStatus();
+
+  try {
+    const models = await loadHighPrecisionModels();
+    highPrecisionModels = models;
+    highPrecisionGroup = models.highPrecisionGroup;
+    highPrecisionMeshes = models.meshes;
+    alignHighPrecisionGroupToBody(targetBox);
+    scene.add(highPrecisionGroup);
+    updateHighPrecisionButtons();
+    updateHighPrecisionVisibility();
+    console.log(`Open3DModel v0.10: ${highPrecisionMeshes.length} high precision structures loaded`);
+  } catch (error) {
+    console.error('Failed to load high precision models:', error);
+    if (highPrecisionStatus) {
+      highPrecisionStatus.textContent = '高精度模型加载失败；标准骨骼仍可正常使用。';
+    }
+  }
+}
+
+if (toggleHighPrecision) {
+  toggleHighPrecision.addEventListener('change', () => {
+    updateHighPrecisionVisibility();
+    if (toggleHighPrecision.checked && highPrecisionGroup) {
+      moveCameraToHighPrecisionMode(getActiveHighPrecisionMode());
+    }
+  });
+}
+
+renderHighPrecisionButtons();
 
 // ───────────── Pain Mechanism Topics ─────────────
 
@@ -2384,6 +2676,8 @@ function updateMuscleVisibility() {
 
     mesh.visible = activeGroups.has(group) && (!isTendon || tendonVisible);
   }
+
+  updateHighPrecisionVisibility();
 }
 
 // View buttons
@@ -2419,6 +2713,10 @@ document.getElementById('btn-reset').addEventListener('click', () => {
   setMuscleOpacity(1);
   document.getElementById('skeleton-opacity-slider').value = 0.6;
   setSkeletonOpacity(0.6);
+  if (toggleHighPrecision) toggleHighPrecision.checked = false;
+  activeHighPrecisionMode = 'full';
+  updateHighPrecisionButtons();
+  updateHighPrecisionVisibility();
   toggleLayerPeel.checked = false;
   layerPeelSlider.value = 0;
   updateLayerPeelUI();
@@ -2481,7 +2779,10 @@ function animateCamera(targetPosition, lookAtTarget, duration) {
 
 // Toggle skeleton
 document.getElementById('toggle-skeleton').addEventListener('change', (e) => {
-  if (skeletonGroup) skeletonGroup.visible = e.target.checked;
+  if (!e.target.checked && toggleHighPrecision) {
+    toggleHighPrecision.checked = false;
+  }
+  updateHighPrecisionVisibility();
 });
 
 // Toggle tendons
@@ -2531,6 +2832,11 @@ function setSkeletonOpacity(opacity) {
   boneMaterial.transparent = opacity < 1;
   // depthWrite off when transparent to avoid z-fighting
   boneMaterial.depthWrite = opacity >= 1;
+  for (const mat of [highPrecisionBoneMaterial, highPrecisionFocusMaterial, highPrecisionReferenceMaterial]) {
+    mat.opacity = opacity;
+    mat.transparent = opacity < 1;
+    mat.depthWrite = opacity >= 1;
+  }
 }
 
 // ───────────── Resize ─────────────
@@ -2570,6 +2876,7 @@ async function initBody() {
 
     // Make skeleton visible by default (matches HTML checked state)
     skeletonGroup.visible = true;
+    updateHighPrecisionVisibility();
 
     // Compute bounding box of entire body for camera adjustment
     const bodyBox = new THREE.Box3().setFromObject(bodyGroup);
@@ -2611,6 +2918,7 @@ async function initBody() {
 
     refreshPainMarkers();
     hideLoadingOverlay();
+    initHighPrecisionModels(bodyBox);
   } catch (error) {
     console.error('Failed to load anatomy model:', error);
     if (loadingText) {

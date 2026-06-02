@@ -66,8 +66,11 @@ The 3D mesh data comes from two open anatomical datasets:
 |---|---|---|
 | [BodyParts3D](https://lifesciencedb.jp/bp3d/) | 401 | MRI-based anatomical meshes from The Database Center for Life Science |
 | [Z-Anatomy](https://www.z-anatomy.com/) | 66 | Community-built anatomical meshes by Gauthier Kervyn |
+| [Open3DModel](https://anatomytool.org/open3dmodel-create) | v0.10 high precision skeleton trial | High precision skeleton and typical vertebrae GLB models used for the optional `高精度模型 v0.10` layer |
 
-All meshes are decimated to ~4000 faces each for real-time performance. The two datasets are spatially aligned using calibrated Y and Z offsets.
+The BodyParts3D and Z-Anatomy meshes are decimated to ~4000 faces each for real-time performance and spatially aligned using calibrated Y and Z offsets.
+
+Open3DModel assets are licensed under Creative Commons Attribution-ShareAlike 4.0 and are included for anatomy education and doctor/patient communication only. They are not diagnostic tools and do not replace professional medical advice.
 
 ## Project Structure
 
