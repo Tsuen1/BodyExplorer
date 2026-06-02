@@ -219,6 +219,7 @@ let selectedMesh = null;
 let focusedMesh = null;
 let activePainRecordId = null;
 let activeMechanismTopicId = null;
+let activePainAreaId = null;
 
 canvas.addEventListener('mousemove', onMouseMove);
 canvas.addEventListener('click', onClick);
@@ -795,6 +796,136 @@ updateLayerPeelUI();
 
 // ───────────── Pain Mechanism Topics ─────────────
 
+const EASTON_PAIN_AREAS = [
+  {
+    id: 'occipital-neck-pain',
+    label: '枕后 / 后颈',
+    badge: '头颈疼痛区域',
+    view: 'back',
+    keywords: [
+      'rectus capitis posterior',
+      'semispinalis capitis',
+      'semispinalis cervicis',
+      'splenius capitis',
+      'splenius cervicis',
+      'levator scapulae',
+      'trapezius',
+      'sternocleidomastoid',
+      'scalenus',
+    ],
+    sections: [
+      {
+        title: '疼痛入口',
+        text: '用于观察 Easton 的枕后、枕下区和后颈部疼痛。重点不是单一肌肉，而是上颈椎、枕骨下方、颈后深层肌和肩颈交界区域的整体关系。',
+      },
+      {
+        title: '相关结构',
+        text: '重点包括枕下肌群、半棘肌、夹肌、肩胛提肌、斜方肌上部和胸锁乳突肌等。长时间低头学习、头前伸姿势或颈部保护性紧张时，可作为医患沟通入口。',
+      },
+      {
+        title: '施罗斯 / 侧弯观察',
+        text: '如果脊柱侧弯伴随头颈代偿，应记录头部是否偏移、肩胛高度是否不对称、颈部哪侧更紧。具体矫正方向需由施罗斯治疗师根据弯型确认。',
+      },
+    ],
+  },
+  {
+    id: 'lumbar-pain',
+    label: '腰部',
+    badge: '腰背疼痛区域',
+    view: 'back',
+    keywords: [
+      'multifidus',
+      'erector',
+      'iliocostalis',
+      'longissimus',
+      'spinalis',
+      'quadratus lumborum',
+      'psoas major',
+      'thoracolumbar fascia',
+      'internal oblique',
+      'transversus abdominis',
+    ],
+    sections: [
+      {
+        title: '疼痛入口',
+        text: '用于观察 Easton 的腰部疼痛，尤其是久坐、弯腰、坐站转换、运动后疲劳时出现的腰背不适。',
+      },
+      {
+        title: '相关结构',
+        text: '重点包括多裂肌、竖脊肌群、腰方肌、腰大肌、腹横肌/腹内斜肌和胸腰筋膜。它们共同参与腰椎稳定、骨盆控制和腰背力传递。',
+      },
+      {
+        title: '施罗斯 / 侧弯观察',
+        text: '可记录腰弯凸侧/凹侧、骨盆是否偏移、腰部哪侧更紧、施罗斯训练后腰痛是否改变。不要自行按压深层腰大肌，需由专业人员评估。',
+      },
+    ],
+  },
+  {
+    id: 'sacroiliac-pain',
+    label: '骶髂部',
+    badge: '骨盆环疼痛区域',
+    view: 'posterolateral',
+    keywords: [
+      'gluteus maximus',
+      'gluteus medius',
+      'gluteus minimus',
+      'piriformis',
+      'obturator',
+      'gemellus',
+      'quadratus femoris',
+      'coccygeus',
+      'iliococcygeus',
+      'pubococcygeus',
+      'thoracolumbar fascia',
+    ],
+    sections: [
+      {
+        title: '疼痛入口',
+        text: '用于观察 Easton 的骶髂部、骶骨旁、髂后上棘附近或臀深部疼痛。这个区域常需要区分腰椎、骶髂关节、髋部和臀深层结构的影响。',
+      },
+      {
+        title: '相关结构',
+        text: '重点包括臀大肌、臀中肌、臀小肌、梨状肌、闭孔肌、孖肌、股方肌、骨盆底相关肌和胸腰筋膜。骶髂区域稳定依赖关节形态、韧带和周围肌群协同。',
+      },
+      {
+        title: '施罗斯 / 侧弯观察',
+        text: '可记录单腿站立、上下楼、跑跳、翻身、坐站转换是否诱发骶髂不适。若存在骨盆旋转或侧移，施罗斯治疗师的骨盆校正方向应作为记录重点。',
+      },
+    ],
+  },
+  {
+    id: 'deep-stability-pain',
+    label: '深层稳定肌',
+    badge: '稳定控制区域',
+    view: 'back',
+    keywords: [
+      'multifidus',
+      'rotatores',
+      'interspinalis',
+      'intertransversarii',
+      'thoracolumbar fascia',
+      'transversus abdominis',
+      'internal oblique',
+      'quadratus lumborum',
+      'psoas major',
+    ],
+    sections: [
+      {
+        title: '疼痛入口',
+        text: '用于把“深层稳定肌相关”的模糊疼痛记录转成可观察结构。它适合记录腰背不稳感、运动后疲劳、姿势保持困难或治疗师提到的深层控制问题。',
+      },
+      {
+        title: '相关结构',
+        text: '重点包括多裂肌、回旋肌、棘间肌、横突间肌、腹横肌、腹内斜肌、腰方肌、腰大肌和胸腰筋膜。它们共同参与腰椎和骨盆的动态稳定。',
+      },
+      {
+        title: '施罗斯 / 侧弯观察',
+        text: '施罗斯训练中的轴向延展、去旋转、凹侧呼吸和保持校正姿势，都需要稳定控制参与。此处可记录训练前后疼痛、疲劳和姿势保持能力变化。',
+      },
+    ],
+  },
+];
+
 const MECHANISM_TOPICS = [
   {
     id: 'deep-stabilizers',
@@ -946,6 +1077,8 @@ const MECHANISM_TOPICS = [
 
 const mechanismTopicButtons = document.getElementById('mechanism-topic-buttons');
 const mechanismTopicStatus = document.getElementById('mechanism-topic-status');
+const painAreaButtons = document.getElementById('easton-pain-area-buttons');
+const painAreaStatus = document.getElementById('easton-pain-area-status');
 const mechanismDetailPanel = document.getElementById('mechanism-detail-panel');
 const mechanismDetailClose = document.getElementById('mechanism-detail-close');
 const mechanismDetailTitle = document.getElementById('mechanism-detail-title');
@@ -956,6 +1089,14 @@ const btnClearMechanismTopic = document.getElementById('btn-clear-mechanism-topi
 
 function getActiveMechanismTopic() {
   return MECHANISM_TOPICS.find((topic) => topic.id === activeMechanismTopicId) || null;
+}
+
+function getActivePainArea() {
+  return EASTON_PAIN_AREAS.find((area) => area.id === activePainAreaId) || null;
+}
+
+function getActiveDisplayTopic() {
+  return getActivePainArea() || getActiveMechanismTopic();
 }
 
 function getMeshRawName(mesh) {
@@ -972,13 +1113,63 @@ function getMechanismTopicMeshes(topic) {
   return muscleMeshes.filter((mesh) => meshMatchesMechanismTopic(mesh, topic));
 }
 
+function getPainAreaMeshes(area) {
+  if (!area) return [];
+  return muscleMeshes.filter((mesh) => meshMatchesMechanismTopic(mesh, area));
+}
+
 function isMechanismTopicEnabled() {
   return Boolean(activeMechanismTopicId);
+}
+
+function isPainAreaEnabled() {
+  return Boolean(activePainAreaId);
 }
 
 function shouldShowForMechanismTopic(mesh) {
   const topic = getActiveMechanismTopic();
   return Boolean(topic && meshMatchesMechanismTopic(mesh, topic));
+}
+
+function shouldShowForPainArea(mesh) {
+  const area = getActivePainArea();
+  return Boolean(area && meshMatchesMechanismTopic(mesh, area));
+}
+
+function renderPainAreaButtons() {
+  painAreaButtons.innerHTML = '';
+
+  for (const area of EASTON_PAIN_AREAS) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'pain-area-btn';
+    button.textContent = area.label;
+    button.dataset.areaId = area.id;
+    button.addEventListener('click', () => {
+      activatePainArea(area.id);
+    });
+    painAreaButtons.appendChild(button);
+  }
+
+  updatePainAreaButtons();
+}
+
+function updatePainAreaButtons() {
+  painAreaButtons.querySelectorAll('.pain-area-btn').forEach((button) => {
+    button.classList.toggle('active', button.dataset.areaId === activePainAreaId);
+  });
+}
+
+function updatePainAreaStatus() {
+  const area = getActivePainArea();
+
+  if (!area) {
+    painAreaStatus.textContent = '从实际疼痛区域进入相关解剖结构。';
+    return;
+  }
+
+  const count = getPainAreaMeshes(area).length;
+  painAreaStatus.textContent = `${area.label}：当前模型中显示 ${count} 个相关结构`;
 }
 
 function renderMechanismTopicButtons() {
@@ -1017,7 +1208,7 @@ function updateMechanismTopicStatus() {
   mechanismTopicStatus.textContent = `${topic.label}：当前模型中显示 ${count} 个相关结构`;
 }
 
-function renderMechanismDetailPanel(topic) {
+function renderMechanismDetailPanel(topic, options = {}) {
   if (!topic) return;
 
   const structures = getMechanismTopicMeshes(topic)
@@ -1030,6 +1221,12 @@ function renderMechanismDetailPanel(topic) {
   mechanismDetailTitle.textContent = topic.label;
   mechanismDetailBadge.textContent = topic.badge;
   mechanismDetailBody.innerHTML = [
+    options.intro ? `
+      <div class="mechanism-section">
+        <h3>${escapeHTML(options.intro.title)}</h3>
+        <p>${escapeHTML(options.intro.text)}</p>
+      </div>
+    ` : '',
     ...topic.sections.map((section) => `
       <div class="mechanism-section">
         <h3>${escapeHTML(section.title)}</h3>
@@ -1091,6 +1288,7 @@ function activateMechanismTopic(topicId) {
   if (!topic) return;
 
   activeMechanismTopicId = topic.id;
+  activePainAreaId = null;
   focusedMesh = null;
   toggleLayerPeel.checked = false;
   layerPeelSlider.value = 0;
@@ -1103,6 +1301,8 @@ function activateMechanismTopic(topicId) {
 
   hideInfoPanel();
   hidePainDetailPanel();
+  updatePainAreaButtons();
+  updatePainAreaStatus();
   updateMechanismTopicButtons();
   updateMechanismTopicStatus();
   renderMechanismDetailPanel(topic);
@@ -1111,8 +1311,44 @@ function activateMechanismTopic(topicId) {
   moveCameraToMechanismTopic(topic);
 }
 
+function activatePainArea(areaId) {
+  const area = EASTON_PAIN_AREAS.find((item) => item.id === areaId);
+  if (!area) return;
+
+  activePainAreaId = area.id;
+  activeMechanismTopicId = null;
+  focusedMesh = null;
+  toggleLayerPeel.checked = false;
+  layerPeelSlider.value = 0;
+  updateLayerPeelUI();
+
+  if (selectedMesh) {
+    resetMeshAppearance(selectedMesh);
+    selectedMesh = null;
+  }
+
+  hideInfoPanel();
+  hidePainDetailPanel();
+  updatePainAreaButtons();
+  updatePainAreaStatus();
+  updateMechanismTopicButtons();
+  updateMechanismTopicStatus();
+  renderMechanismDetailPanel(area, {
+    intro: {
+      title: 'Easton 疼痛区域入口',
+      text: '此视图从孩子当前疼痛位置出发，帮助把疼痛记录、相关解剖结构、脊柱侧弯观察和施罗斯康复沟通连接起来。',
+    },
+  });
+  updateFocusButtons();
+  updateMuscleVisibility();
+  moveCameraToMechanismTopic(area);
+}
+
 function clearMechanismTopic(options = {}) {
   activeMechanismTopicId = null;
+  activePainAreaId = null;
+  updatePainAreaButtons();
+  updatePainAreaStatus();
   updateMechanismTopicButtons();
   updateMechanismTopicStatus();
   if (!options.keepPanel) {
@@ -1121,6 +1357,7 @@ function clearMechanismTopic(options = {}) {
   updateMuscleVisibility();
 }
 
+renderPainAreaButtons();
 renderMechanismTopicButtons();
 
 // ───────────── Pain Records ─────────────
@@ -1716,7 +1953,7 @@ mechanismDetailClose.addEventListener('click', () => {
 });
 
 btnMechanismBackView.addEventListener('click', () => {
-  const topic = getActiveMechanismTopic();
+  const topic = getActiveDisplayTopic();
   if (topic) moveCameraToMechanismTopic({ ...topic, view: 'back' });
 });
 
@@ -1841,7 +2078,10 @@ function setAllMuscleGroups(active, options = {}) {
   if (options.clearFocus) {
     focusedMesh = null;
     activeMechanismTopicId = null;
+    activePainAreaId = null;
     hideMechanismDetailPanel();
+    updatePainAreaButtons();
+    updatePainAreaStatus();
     updateMechanismTopicButtons();
     updateMechanismTopicStatus();
   }
@@ -1905,6 +2145,11 @@ function updateMuscleVisibility() {
       continue;
     }
 
+    if (isPainAreaEnabled()) {
+      mesh.visible = shouldShowForPainArea(mesh);
+      continue;
+    }
+
     if (isMechanismTopicEnabled()) {
       mesh.visible = shouldShowForMechanismTopic(mesh);
       continue;
@@ -1954,6 +2199,9 @@ document.getElementById('btn-reset').addEventListener('click', () => {
   toggleLayerPeel.checked = false;
   layerPeelSlider.value = 0;
   updateLayerPeelUI();
+  activePainAreaId = null;
+  updatePainAreaButtons();
+  updatePainAreaStatus();
   activeMechanismTopicId = null;
   updateMechanismTopicButtons();
   updateMechanismTopicStatus();
