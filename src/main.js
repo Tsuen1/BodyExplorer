@@ -220,6 +220,7 @@ let focusedMesh = null;
 let activePainRecordId = null;
 let activeMechanismTopicId = null;
 let activePainAreaId = null;
+let activeNeckDetailId = null;
 
 canvas.addEventListener('mousemove', onMouseMove);
 canvas.addEventListener('click', onClick);
@@ -926,6 +927,118 @@ const EASTON_PAIN_AREAS = [
   },
 ];
 
+const NECK_DETAIL_LAYERS = [
+  {
+    id: 'suboccipital-deep',
+    label: '枕下深层',
+    badge: '上颈深层控制',
+    view: 'back',
+    keywords: [
+      'rectus capitis posterior',
+      'rectus capitis anterior',
+      'rectus capitis lateralis',
+      'semispinalis capitis',
+    ],
+    sections: [
+      {
+        title: '观察重点',
+        text: '枕下深层位于枕骨下方和上颈椎附近，适合观察枕后痛、头颈交界处紧张和上颈椎小范围控制。',
+      },
+      {
+        title: '机制提示',
+        text: '枕下区域肌肉体积小，但和头颈位置感、轻微伸展与旋转控制有关。长时间低头、头前伸或颈部保护性紧张时，可作为医生查体和沟通重点。',
+      },
+      {
+        title: '施罗斯 / 侧弯观察',
+        text: '记录头是否前伸、偏向某侧，枕后哪侧更紧，施罗斯训练中的轴向延展后枕后痛是否改变。具体矫正方向应由治疗师确认。',
+      },
+    ],
+  },
+  {
+    id: 'posterior-neck-extensors',
+    label: '颈后伸肌',
+    badge: '颈后支撑链',
+    view: 'back',
+    keywords: [
+      'semispinalis capitis',
+      'semispinalis cervicis',
+      'splenius capitis',
+      'splenius cervicis',
+      'multifidus cervicis',
+      'trapezius',
+    ],
+    sections: [
+      {
+        title: '观察重点',
+        text: '颈后伸肌连接头颈、颈胸交界和肩背区域，适合观察后颈部疼痛、低头学习后疲劳和颈背连接处紧张。',
+      },
+      {
+        title: '机制提示',
+        text: '颈后肌群既参与头颈伸展和旋转，也承担姿势保持。若胸椎姿势、肩胛位置或脊柱侧弯代偿改变，颈后肌群负荷可能增加。',
+      },
+      {
+        title: '施罗斯 / 侧弯观察',
+        text: '可记录训练前后头颈是否更容易保持中立位，后颈疼痛是否随胸廓去旋转、轴向延展或肩胛位置变化而改变。',
+      },
+    ],
+  },
+  {
+    id: 'neck-shoulder-link',
+    label: '肩颈连接',
+    badge: '肩胛-颈椎协同',
+    view: 'posterolateral',
+    keywords: [
+      'levator scapulae',
+      'trapezius',
+      'rhomboid',
+      'splenius cervicis',
+      'scalenus',
+    ],
+    sections: [
+      {
+        title: '观察重点',
+        text: '肩颈连接层用于观察肩胛提肌、斜方肌和菱形肌等结构，帮助理解后颈痛与肩胛位置、上背姿势的关系。',
+      },
+      {
+        title: '机制提示',
+        text: '肩胛上提、圆肩、胸椎姿势变化或左右肩高度不对称时，肩颈连接结构可能出现持续负荷或代偿紧张。',
+      },
+      {
+        title: '施罗斯 / 侧弯观察',
+        text: '可记录肩高差、肩胛突出、胸弯凸侧/凹侧与颈部紧张的关系。施罗斯中的肩带摆位应以治疗师指导为准。',
+      },
+    ],
+  },
+  {
+    id: 'anterior-neck-compensation',
+    label: '前侧代偿',
+    badge: '头颈前侧链',
+    view: 'front',
+    keywords: [
+      'sternocleidomastoid',
+      'scalenus',
+      'longus capitis',
+      'longus colli',
+      'rectus capitis anterior',
+      'rectus capitis lateralis',
+    ],
+    sections: [
+      {
+        title: '观察重点',
+        text: '前侧代偿层用于观察胸锁乳突肌、斜角肌、头长肌和颈长肌等前侧结构，帮助理解头前伸、转头或呼吸相关紧张。',
+      },
+      {
+        title: '机制提示',
+        text: '如果头颈长期前移，前侧浅层和深层结构可能参与代偿。前颈深层结构位置敏感，不适合自行深按或强拉。',
+      },
+      {
+        title: '施罗斯 / 侧弯观察',
+        text: '可记录轴向延展后下颌、头颈前移和胸廓姿势是否改善。若训练中出现头晕、麻木或疼痛加重，应停止并告知治疗师。',
+      },
+    ],
+  },
+];
+
 const MECHANISM_TOPICS = [
   {
     id: 'deep-stabilizers',
@@ -1079,6 +1192,8 @@ const mechanismTopicButtons = document.getElementById('mechanism-topic-buttons')
 const mechanismTopicStatus = document.getElementById('mechanism-topic-status');
 const painAreaButtons = document.getElementById('easton-pain-area-buttons');
 const painAreaStatus = document.getElementById('easton-pain-area-status');
+const neckDetailButtons = document.getElementById('neck-detail-buttons');
+const neckDetailStatus = document.getElementById('neck-detail-status');
 const mechanismDetailPanel = document.getElementById('mechanism-detail-panel');
 const mechanismDetailClose = document.getElementById('mechanism-detail-close');
 const mechanismDetailTitle = document.getElementById('mechanism-detail-title');
@@ -1095,8 +1210,12 @@ function getActivePainArea() {
   return EASTON_PAIN_AREAS.find((area) => area.id === activePainAreaId) || null;
 }
 
+function getActiveNeckDetail() {
+  return NECK_DETAIL_LAYERS.find((layer) => layer.id === activeNeckDetailId) || null;
+}
+
 function getActiveDisplayTopic() {
-  return getActivePainArea() || getActiveMechanismTopic();
+  return getActiveNeckDetail() || getActivePainArea() || getActiveMechanismTopic();
 }
 
 function getMeshRawName(mesh) {
@@ -1118,12 +1237,21 @@ function getPainAreaMeshes(area) {
   return muscleMeshes.filter((mesh) => meshMatchesMechanismTopic(mesh, area));
 }
 
+function getNeckDetailMeshes(layer) {
+  if (!layer) return [];
+  return muscleMeshes.filter((mesh) => meshMatchesMechanismTopic(mesh, layer));
+}
+
 function isMechanismTopicEnabled() {
   return Boolean(activeMechanismTopicId);
 }
 
 function isPainAreaEnabled() {
   return Boolean(activePainAreaId);
+}
+
+function isNeckDetailEnabled() {
+  return Boolean(activeNeckDetailId);
 }
 
 function shouldShowForMechanismTopic(mesh) {
@@ -1134,6 +1262,11 @@ function shouldShowForMechanismTopic(mesh) {
 function shouldShowForPainArea(mesh) {
   const area = getActivePainArea();
   return Boolean(area && meshMatchesMechanismTopic(mesh, area));
+}
+
+function shouldShowForNeckDetail(mesh) {
+  const layer = getActiveNeckDetail();
+  return Boolean(layer && meshMatchesMechanismTopic(mesh, layer));
 }
 
 function renderPainAreaButtons() {
@@ -1170,6 +1303,42 @@ function updatePainAreaStatus() {
 
   const count = getPainAreaMeshes(area).length;
   painAreaStatus.textContent = `${area.label}：当前模型中显示 ${count} 个相关结构`;
+}
+
+function renderNeckDetailButtons() {
+  neckDetailButtons.innerHTML = '';
+
+  for (const layer of NECK_DETAIL_LAYERS) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'neck-detail-btn';
+    button.textContent = layer.label;
+    button.dataset.layerId = layer.id;
+    button.addEventListener('click', () => {
+      activateNeckDetail(layer.id);
+    });
+    neckDetailButtons.appendChild(button);
+  }
+
+  updateNeckDetailButtons();
+}
+
+function updateNeckDetailButtons() {
+  neckDetailButtons.querySelectorAll('.neck-detail-btn').forEach((button) => {
+    button.classList.toggle('active', button.dataset.layerId === activeNeckDetailId);
+  });
+}
+
+function updateNeckDetailStatus() {
+  const layer = getActiveNeckDetail();
+
+  if (!layer) {
+    neckDetailStatus.textContent = '细分枕后、颈后和肩颈连接结构。';
+    return;
+  }
+
+  const count = getNeckDetailMeshes(layer).length;
+  neckDetailStatus.textContent = `${layer.label}：当前模型中显示 ${count} 个相关结构`;
 }
 
 function renderMechanismTopicButtons() {
@@ -1289,6 +1458,7 @@ function activateMechanismTopic(topicId) {
 
   activeMechanismTopicId = topic.id;
   activePainAreaId = null;
+  activeNeckDetailId = null;
   focusedMesh = null;
   toggleLayerPeel.checked = false;
   layerPeelSlider.value = 0;
@@ -1303,6 +1473,8 @@ function activateMechanismTopic(topicId) {
   hidePainDetailPanel();
   updatePainAreaButtons();
   updatePainAreaStatus();
+  updateNeckDetailButtons();
+  updateNeckDetailStatus();
   updateMechanismTopicButtons();
   updateMechanismTopicStatus();
   renderMechanismDetailPanel(topic);
@@ -1317,6 +1489,7 @@ function activatePainArea(areaId) {
 
   activePainAreaId = area.id;
   activeMechanismTopicId = null;
+  activeNeckDetailId = null;
   focusedMesh = null;
   toggleLayerPeel.checked = false;
   layerPeelSlider.value = 0;
@@ -1331,6 +1504,8 @@ function activatePainArea(areaId) {
   hidePainDetailPanel();
   updatePainAreaButtons();
   updatePainAreaStatus();
+  updateNeckDetailButtons();
+  updateNeckDetailStatus();
   updateMechanismTopicButtons();
   updateMechanismTopicStatus();
   renderMechanismDetailPanel(area, {
@@ -1344,11 +1519,50 @@ function activatePainArea(areaId) {
   moveCameraToMechanismTopic(area);
 }
 
+function activateNeckDetail(layerId) {
+  const layer = NECK_DETAIL_LAYERS.find((item) => item.id === layerId);
+  if (!layer) return;
+
+  activeNeckDetailId = layer.id;
+  activePainAreaId = null;
+  activeMechanismTopicId = null;
+  focusedMesh = null;
+  toggleLayerPeel.checked = false;
+  layerPeelSlider.value = 0;
+  updateLayerPeelUI();
+
+  if (selectedMesh) {
+    resetMeshAppearance(selectedMesh);
+    selectedMesh = null;
+  }
+
+  hideInfoPanel();
+  hidePainDetailPanel();
+  updatePainAreaButtons();
+  updatePainAreaStatus();
+  updateNeckDetailButtons();
+  updateNeckDetailStatus();
+  updateMechanismTopicButtons();
+  updateMechanismTopicStatus();
+  renderMechanismDetailPanel(layer, {
+    intro: {
+      title: '颈部详细层',
+      text: '此视图把枕后和后颈疼痛继续拆成更细的结构层，便于观察头颈姿势、肩颈连接和脊柱侧弯相关代偿。',
+    },
+  });
+  updateFocusButtons();
+  updateMuscleVisibility();
+  moveCameraToMechanismTopic(layer);
+}
+
 function clearMechanismTopic(options = {}) {
   activeMechanismTopicId = null;
   activePainAreaId = null;
+  activeNeckDetailId = null;
   updatePainAreaButtons();
   updatePainAreaStatus();
+  updateNeckDetailButtons();
+  updateNeckDetailStatus();
   updateMechanismTopicButtons();
   updateMechanismTopicStatus();
   if (!options.keepPanel) {
@@ -1358,6 +1572,7 @@ function clearMechanismTopic(options = {}) {
 }
 
 renderPainAreaButtons();
+renderNeckDetailButtons();
 renderMechanismTopicButtons();
 
 // ───────────── Pain Records ─────────────
@@ -2079,9 +2294,12 @@ function setAllMuscleGroups(active, options = {}) {
     focusedMesh = null;
     activeMechanismTopicId = null;
     activePainAreaId = null;
+    activeNeckDetailId = null;
     hideMechanismDetailPanel();
     updatePainAreaButtons();
     updatePainAreaStatus();
+    updateNeckDetailButtons();
+    updateNeckDetailStatus();
     updateMechanismTopicButtons();
     updateMechanismTopicStatus();
   }
@@ -2145,6 +2363,11 @@ function updateMuscleVisibility() {
       continue;
     }
 
+    if (isNeckDetailEnabled()) {
+      mesh.visible = shouldShowForNeckDetail(mesh);
+      continue;
+    }
+
     if (isPainAreaEnabled()) {
       mesh.visible = shouldShowForPainArea(mesh);
       continue;
@@ -2202,6 +2425,9 @@ document.getElementById('btn-reset').addEventListener('click', () => {
   activePainAreaId = null;
   updatePainAreaButtons();
   updatePainAreaStatus();
+  activeNeckDetailId = null;
+  updateNeckDetailButtons();
+  updateNeckDetailStatus();
   activeMechanismTopicId = null;
   updateMechanismTopicButtons();
   updateMechanismTopicStatus();
