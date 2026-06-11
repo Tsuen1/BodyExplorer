@@ -1,4 +1,4 @@
-# Body Explorer
+# Tsuen’s 解剖系统
 
 An interactive 3D human muscular system explorer built with [Three.js](https://threejs.org/). Browse, search, and study 467 anatomical structures — muscles, tendons, and connective tissue — rendered as a photorealistic écorché (body without skin) with a full 201-bone skeleton overlay.
 
@@ -66,11 +66,13 @@ The 3D mesh data comes from two open anatomical datasets:
 |---|---|---|
 | [BodyParts3D](https://lifesciencedb.jp/bp3d/) | 401 | MRI-based anatomical meshes from The Database Center for Life Science |
 | [Z-Anatomy](https://www.z-anatomy.com/) | 66 | Community-built anatomical meshes by Gauthier Kervyn |
-| [Open3DModel](https://anatomytool.org/open3dmodel-create) | v0.10 high precision skeleton trial | High precision skeleton and typical vertebrae GLB models used for the optional `高精度模型 v0.10` layer |
+| [Open3DModel](https://anatomytool.org/open3dmodel-create) | v0.10 backup high precision skeleton trial | High precision skeleton and typical vertebrae GLB models used for the optional `备用高精度骨骼 v0.10` comparison layer |
 
 The BodyParts3D and Z-Anatomy meshes are decimated to ~4000 faces each for real-time performance and spatially aligned using calibrated Y and Z offsets.
 
 Open3DModel assets are licensed under Creative Commons Attribution-ShareAlike 4.0 and are included for anatomy education and doctor/patient communication only. They are not diagnostic tools and do not replace professional medical advice.
+
+The v0.10 Open3DModel layer is kept as a backup comparison layer because no fully compatible open high precision whole-body skeleton-and-muscle replacement has been adopted yet. The default view continues to use the original aligned skeleton and muscle models.
 
 ## Project Structure
 

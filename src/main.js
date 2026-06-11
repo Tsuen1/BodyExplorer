@@ -840,7 +840,7 @@ const HIGH_PRECISION_MODES = [
     label: '全身骨骼',
     view: 'front',
     roles: ['skeleton'],
-    description: '显示 Open3DModel 高精度全身骨骼；适合和医生整体沟通骨骼位置。',
+    description: '显示 Open3DModel 备用高精度全身骨骼；用于对比观察，不替代原始骨骼与肌肉系统。',
   },
   {
     id: 'lumbar-pelvis',
@@ -928,23 +928,23 @@ function updateHighPrecisionStatus() {
   if (!highPrecisionStatus) return;
 
   if (!highPrecisionGroup) {
-    highPrecisionStatus.textContent = '高精度骨骼正在后台加载，加载完成后可启用。';
+    highPrecisionStatus.textContent = '备用高精度骨骼正在后台加载，加载完成后可用于对比。';
     return;
   }
 
   if (!document.getElementById('toggle-skeleton')?.checked) {
-    highPrecisionStatus.textContent = '骨骼显示已关闭；打开“显示骨骼”后可使用高精度层。';
+    highPrecisionStatus.textContent = '骨骼显示已关闭；打开“显示骨骼”后可使用备用高精度层。';
     return;
   }
 
   if (!toggleHighPrecision?.checked) {
-    highPrecisionStatus.textContent = '标准骨骼正在显示；需要更真实骨骼时可启用高精度层。';
+    highPrecisionStatus.textContent = '当前使用原始骨骼和肌肉；备用高精度骨骼默认隐藏。';
     return;
   }
 
   const mode = getActiveHighPrecisionMode();
   const count = highPrecisionMeshes.filter((mesh) => mesh.visible).length;
-  highPrecisionStatus.textContent = `${mode.label}：显示 ${count} 个 Open3DModel 高精度结构；标准骨骼已自动隐藏。`;
+  highPrecisionStatus.textContent = `${mode.label}：显示 ${count} 个 Open3DModel 备用高精度结构；原始骨骼已临时隐藏，肌肉仍使用原模型。`;
 }
 
 function getHighPrecisionMaterial(mesh, mode) {
@@ -1071,7 +1071,7 @@ async function initHighPrecisionModels(targetBox) {
   } catch (error) {
     console.error('Failed to load high precision models:', error);
     if (highPrecisionStatus) {
-      highPrecisionStatus.textContent = '高精度模型加载失败；标准骨骼仍可正常使用。';
+      highPrecisionStatus.textContent = '备用高精度模型加载失败；原始骨骼和肌肉仍可正常使用。';
     }
   }
 }
@@ -2096,7 +2096,7 @@ function exportPainRecords(format) {
 
   if (format === 'json') {
     const payload = {
-      app: 'Easton 疼痛解剖地图',
+      app: 'Tsuen’s 解剖系统',
       exportedAt: new Date().toISOString(),
       recordCount: painRecords.length,
       records: painRecords,
@@ -2532,11 +2532,16 @@ searchInput.addEventListener('input', () => {
   const query = searchInput.value.toLowerCase().trim();
   searchResults.innerHTML = '';
 
-  if (query.length < 2 || muscleMeshes.length === 0) return;
+  if (!isSearchQueryLongEnough(query) || muscleMeshes.length === 0) return;
 
-  const matches = muscleMeshes.filter((m) =>
-    (m.userData.searchText || m.userData.displayName || '').toLowerCase().includes(query)
-  );
+  const matches = muscleMeshes
+    .map((mesh) => ({ mesh, score: getSearchMatchScore(mesh, query) }))
+    .filter((item) => item.score < Infinity)
+    .sort((a, b) =>
+      a.score - b.score ||
+      String(a.mesh.userData.displayName || '').localeCompare(String(b.mesh.userData.displayName || ''), 'zh-Hans')
+    )
+    .map((item) => item.mesh);
 
   for (const mesh of matches.slice(0, 10)) {
     const div = document.createElement('div');
@@ -2554,6 +2559,30 @@ searchInput.addEventListener('input', () => {
     searchResults.appendChild(div);
   }
 });
+
+function isSearchQueryLongEnough(query) {
+  if (!query) return false;
+  if (/[\u3400-\u9fff]/.test(query)) return query.length >= 1;
+  return query.length >= 2;
+}
+
+function getSearchMatchScore(mesh, query) {
+  const displayName = (mesh.userData.displayName || '').toLowerCase();
+  const englishName = (mesh.userData.englishName || '').toLowerCase();
+  const rawName = (mesh.userData.muscleData?.rawName || '').toLowerCase();
+  const searchText = (mesh.userData.searchText || displayName).toLowerCase();
+
+  if (!searchText.includes(query)) return Infinity;
+
+  let score = 100;
+  if (displayName.includes(query)) score -= 45;
+  if (englishName.includes(query) || rawName.includes(query)) score -= 30;
+  if (mesh.userData.muscleData?.type === 'muscle') score -= 20;
+  if (displayName.startsWith(query)) score -= 10;
+  if (query.includes('肌') && mesh.userData.muscleData?.type !== 'muscle') score += 30;
+
+  return score;
+}
 
 function zoomToMesh(mesh) {
   mesh.geometry.computeBoundingBox();

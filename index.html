@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Easton 疼痛解剖地图</title>
+  <title>Tsuen’s 解剖系统</title>
   <link rel="stylesheet" href="/src/styles.css" />
 </head>
 <body>
@@ -13,7 +13,7 @@
     <!-- Loading overlay -->
     <div id="loading-overlay">
       <div id="loading-content">
-        <h2>Easton 疼痛解剖地图</h2>
+        <h2>Tsuen’s 解剖系统</h2>
         <p id="loading-text">正在加载解剖模型... 0%</p>
         <div id="loading-bar-track">
           <div id="loading-bar"></div>
@@ -25,7 +25,7 @@
 
     <div id="ui-overlay">
       <header id="top-bar">
-        <h1>Easton 疼痛解剖地图</h1>
+        <h1>Tsuen’s 解剖系统</h1>
         <p class="subtitle">疼痛部位与肌骨结构标注</p>
       </header>
 
@@ -84,13 +84,13 @@
         </div>
 
         <div class="control-group high-precision-panel">
-          <label>高精度模型 v0.10</label>
+          <label>备用高精度骨骼 v0.10</label>
           <label class="toggle">
             <input type="checkbox" id="toggle-high-precision" />
-            <span>启用 Open3DModel 高精度骨骼</span>
+            <span>启用备用 Open3DModel 骨骼</span>
           </label>
           <div id="high-precision-buttons"></div>
-          <p id="high-precision-status">标准骨骼正在显示；需要更真实骨骼时可启用高精度层。</p>
+          <p id="high-precision-status">当前使用原始骨骼和肌肉；备用高精度骨骼默认隐藏。</p>
         </div>
 
         <div class="control-group layer-peel-panel">

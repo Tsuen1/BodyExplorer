@@ -218,11 +218,13 @@ export function buildBody(onProgress) {
 
           const englishName = formatMuscleName(name);
           const chineseName = getChineseDisplayName(name, englishName);
+          const searchAliases = getSearchAliases(name, group);
+          const groupLabel = getSearchGroupLabel(name, group);
 
           // Store metadata for raycasting/info panel
           mesh.userData.displayName = chineseName;
           mesh.userData.englishName = englishName;
-          mesh.userData.searchText = `${chineseName} ${englishName} ${name}`.toLowerCase();
+          mesh.userData.searchText = `${chineseName} ${englishName} ${name} ${groupLabel} ${searchAliases.join(' ')}`.toLowerCase();
           mesh.userData.originalMaterial = material; // for highlight restore
           mesh.userData.muscleData = {
             name: chineseName,
@@ -349,4 +351,63 @@ function determineSide(name) {
   if (lower.includes('left')) return 'Left';
   if (lower.includes('right')) return 'Right';
   return 'Center';
+}
+
+function getSearchAliases(name, group) {
+  const n = name.toLowerCase().replace(/_/g, ' ');
+  const aliases = [];
+
+  if (isNeckRelatedName(n)) {
+    aliases.push('头颈部', '颈部', '颈部肌肉');
+  }
+
+  if (n.includes('rectus capitis posterior') ||
+      n.includes('semispinalis capitis') ||
+      n.includes('splenius capitis')) {
+    aliases.push('枕下', '枕后', '后颈', '颈后', '上颈部');
+  }
+
+  if (n.includes('semispinalis cervicis') ||
+      n.includes('splenius cervicis') ||
+      n.includes('multifidus cervicis') ||
+      n.includes('levator scapulae') ||
+      n.includes('trapezius')) {
+    aliases.push('后颈', '颈后', '肩颈', '颈背连接');
+  }
+
+  if (n.includes('sternocleidomastoid') ||
+      n.includes('scalenus') ||
+      n.includes('longus capitis') ||
+      n.includes('longus colli')) {
+    aliases.push('前颈', '颈前', '颈部前侧', '前侧代偿');
+  }
+
+  return aliases;
+}
+
+function getSearchGroupLabel(name, group) {
+  if (group === 'HEAD_NECK') {
+    return isNeckRelatedName(name.toLowerCase().replace(/_/g, ' ')) ? '颈部' : '';
+  }
+
+  return MUSCLE_GROUPS[group]?.label || '';
+}
+
+function isNeckRelatedName(name) {
+  return name.includes('cervicis') ||
+    name.includes('cervical') ||
+    name.includes('sternocleidomastoid') ||
+    name.includes('platysma') ||
+    name.includes('scalenus') ||
+    name.includes('longus capitis') ||
+    name.includes('longus colli') ||
+    name.includes('rectus capitis') ||
+    name.includes('splenius') ||
+    name.includes('semispinalis') ||
+    name.includes('multifidus') ||
+    name.includes('levator scapulae') ||
+    name.includes('trapezius') ||
+    name.includes('sternohyoid') ||
+    name.includes('omohyoid') ||
+    name.includes('thyrohyoid');
 }
